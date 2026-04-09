@@ -418,5 +418,29 @@
     "messageId": "false_120363424519179359@g.us_2AC0C10F22D1577E5CE7_96894613209135@lid",
     "hasMedia": false,
     "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T15:13:37.556Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "@221422811127931",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2A9A7C865651EEFFDB01_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T15:14:16.839Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "@221422811127931 ! whitelist",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2A969538E72B8B506490_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
   }
 ]
