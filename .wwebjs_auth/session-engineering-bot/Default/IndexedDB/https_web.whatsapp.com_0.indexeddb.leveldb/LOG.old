@@ -1,0 +1,42 @@
+2026/04/09-21:30:40.605 5be8f0 Creating DB /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb since it was missing.
+2026/04/09-21:30:40.607 5be8f0 Reusing MANIFEST /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/IndexedDB/https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/04/09-21:31:24.800 5be8f0 Level-0 table #5: started
+2026/04/09-21:31:24.814 5be8f0 Level-0 table #5: 1005628 bytes OK
+2026/04/09-21:31:24.816 5be8f0 Delete type=0 #3
+2026/04/09-21:31:25.556 5be8f0 Level-0 table #7: started
+2026/04/09-21:31:25.571 5be8f0 Level-0 table #7: 1053544 bytes OK
+2026/04/09-21:31:25.572 5be8f0 Delete type=0 #4
+2026/04/09-21:31:25.573 5be8f0 Compacting 1@1 + 1@2 files
+2026/04/09-21:31:25.599 5be8f0 Generated table #8@1: 28095 keys, 1135430 bytes
+2026/04/09-21:31:25.599 5be8f0 Compacted 1@1 + 1@2 files => 1135430 bytes
+2026/04/09-21:31:25.600 5be8f0 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/04/09-21:31:25.882 5be8f0 Level-0 table #10: started
+2026/04/09-21:31:25.895 5be8f0 Level-0 table #10: 896321 bytes OK
+2026/04/09-21:31:25.897 5be8f0 Delete type=0 #6
+2026/04/09-21:31:25.897 5be8f0 Delete type=2 #7
+2026/04/09-21:31:25.897 5be8f0 Delete type=2 #5
+2026/04/09-21:31:25.898 5be8f0 Compacting 1@1 + 1@2 files
+2026/04/09-21:31:25.923 5be8f0 Generated table #11@1: 33986 keys, 1363071 bytes
+2026/04/09-21:31:25.923 5be8f0 Compacted 1@1 + 1@2 files => 1363071 bytes
+2026/04/09-21:31:25.924 5be8f0 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/04/09-21:31:26.131 5be8ee Level-0 table #13: started
+2026/04/09-21:31:26.145 5be8ee Level-0 table #13: 935081 bytes OK
+2026/04/09-21:31:26.146 5be8ee Delete type=2 #10
+2026/04/09-21:31:26.147 5be8ee Delete type=2 #8
+2026/04/09-21:31:26.147 5be8ee Delete type=0 #9
+2026/04/09-21:31:26.185 5be8ee Compacting 1@1 + 1@2 files
+2026/04/09-21:31:26.210 5be8ee Generated table #14@1: 40290 keys, 1802108 bytes
+2026/04/09-21:31:26.210 5be8ee Compacted 1@1 + 1@2 files => 1802108 bytes
+2026/04/09-21:31:26.211 5be8ee compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/04/09-21:31:26.211 5be8ee Delete type=2 #13
+2026/04/09-21:31:26.211 5be8ee Delete type=2 #11
+2026/04/09-21:31:37.434 5be8f0 Level-0 table #16: started
+2026/04/09-21:31:37.461 5be8f0 Level-0 table #16: 1245266 bytes OK
+2026/04/09-21:31:37.465 5be8f0 Delete type=0 #12
+2026/04/09-21:31:38.258 5be8f0 Compacting 1@1 + 1@2 files
+2026/04/09-21:31:38.304 5be8f0 Generated table #17@1: 34253 keys, 2192615 bytes
+2026/04/09-21:31:38.314 5be8f0 Generated table #18@1: 13654 keys, 482163 bytes
+2026/04/09-21:31:38.314 5be8f0 Compacted 1@1 + 1@2 files => 2674778 bytes
+2026/04/09-21:31:38.315 5be8f0 compacted to: files[ 0 0 2 0 0 0 0 ]
+2026/04/09-21:31:38.315 5be8f0 Delete type=2 #14
+2026/04/09-21:31:38.315 5be8f0 Delete type=2 #16

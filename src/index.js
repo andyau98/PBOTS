@@ -145,9 +145,14 @@ client.on('message', async (message) => {
     }
     
     // 處理命令
-    if (messageBody.startsWith('!')) {
-        await handleCommand(message, messageBody, senderInfo, sourcePrefix, isGroup, groupName, groupId);
-    }
+        if (messageBody.startsWith('!') || messageBody.startsWith('#')) {
+            await handleCommand(message, messageBody, senderInfo, sourcePrefix, isGroup, groupName, groupId);
+        }
+        
+        // 處理密碼驗證（非命令開頭的訊息）
+        else if (!isGroup && !messageBody.startsWith('!') && !messageBody.startsWith('#')) {
+            await handlePasswordVerification(message, messageBody, message.from, senderInfo);
+        }
 });
 
 // 命令處理函數
@@ -172,19 +177,25 @@ async function handleCommand(message, commandText, senderInfo, sourcePrefix, isG
             return;
         }
         
-        // 檢查用戶權限
-        const hasPermission = securityManager.checkPermission(userId, groupId, commandConfig.permission);
-        if (!hasPermission) {
-            console.log(`🚫 權限不足: ${command} 來自 ${sourcePrefix} ${senderInfo}`);
-            securityManager.logUnauthorizedAccess(
-                command,
-                userId,
-                isGroup ? 'Group' : 'Private',
-                `Unauthorized access attempt for ${commandConfig.permission} command`,
-                commandText
-            );
-            await message.reply('🚫 權限不足，無法執行此命令');
-            return;
+        // 檢查用戶權限（公開命令完全跳過權限檢查）
+        const isPublicCommand = securityManager.isPublicCommand(commandConfig.permission);
+        if (!isPublicCommand) {
+            const hasPermission = securityManager.checkPermission(userId, groupId, commandConfig.permission);
+            if (!hasPermission) {
+                console.log(`🚫 權限不足: ${command} 來自 ${sourcePrefix} ${senderInfo}`);
+                securityManager.logUnauthorizedAccess(
+                    command,
+                    userId,
+                    isGroup ? 'Group' : 'Private',
+                    `Unauthorized access attempt for ${commandConfig.permission} command`,
+                    commandText
+                );
+                await message.reply('🚫 權限不足，無法執行此命令');
+                return;
+            }
+        } else {
+            // 公開命令完全跳過權限檢查，直接進入處理流程
+            console.log(`🔓 公開命令 ${command} 跳過權限檢查，直接處理`);
         }
         
         // 處理命令
@@ -204,7 +215,29 @@ async function handleCommand(message, commandText, senderInfo, sourcePrefix, isG
                 console.log(`🔓 處理白名單認證請求來自 ${sourcePrefix} ${senderInfo}`);
                 const whitelistResult = await securityManager.handleWhitelistCommand(message, commandText, userId);
                 await message.reply(whitelistResult.message);
-                console.log(`✅ 白名單認證完成: ${whitelistResult.success ? '成功' : '失敗'}`);
+                
+                if (whitelistResult.requiresPassword && whitelistResult.privateMessage) {
+                    // 發送私訊給用戶
+                    try {
+                        const chat = await message.getChat();
+                        if (chat.isGroup) {
+                            // 如果是群組，獲取用戶的私訊聊天
+                            const contact = await message.getContact();
+                            await contact.sendMessage(whitelistResult.privateMessage);
+                            console.log(`🔐 已私訊用戶 ${senderInfo} 要求密碼驗證`);
+                        } else {
+                            // 如果是私訊，直接回覆
+                            await message.reply(whitelistResult.privateMessage);
+                            console.log(`🔐 已在私訊中要求用戶 ${senderInfo} 進行密碼驗證`);
+                        }
+                    } catch (error) {
+                        console.log(`❌ 發送私訊失敗: ${error.message}`);
+                    }
+                } else if (whitelistResult.alreadyAdmin) {
+                    console.log(`✅ 用戶 ${senderInfo} 已經是管理員`);
+                } else {
+                    console.log(`✅ 白名單認證完成: ${whitelistResult.success ? '成功' : '失敗'}`);
+                }
                 break;
                 
             case '!stats':
@@ -250,6 +283,50 @@ async function handleCommand(message, commandText, senderInfo, sourcePrefix, isG
     } catch (error) {
         console.log(`❌ 命令處理錯誤: ${error.message}`);
         await message.reply('❌ 命令處理發生錯誤，請稍後再試');
+    }
+}
+
+// 處理密碼驗證
+async function handlePasswordVerification(message, password, userId, senderInfo) {
+    try {
+        // 防錯處理：確保所有必要參數都存在
+        if (!message || !password || !userId || !senderInfo) {
+            console.log(`❌ 密碼驗證參數錯誤: message=${!!message}, password=${!!password}, userId=${!!userId}, senderInfo=${!!senderInfo}`);
+            await message.reply('❌ 密碼驗證參數錯誤，請重新嘗試');
+            return;
+        }
+        
+        console.log(`🔐 處理密碼驗證請求來自 ${senderInfo} (ID: ${userId})`);
+        
+        // 檢查用戶是否已經在進行白名單認證流程
+        // 這裡我們假設任何私訊的數字都可能是密碼驗證嘗試
+        
+        // 使用 securityManager 處理密碼驗證
+        const passwordResult = await securityManager.handlePasswordVerification(
+            message, 
+            password, 
+            userId, 
+            false, // 私訊不是群組
+            null   // 沒有群組名稱
+        );
+        
+        if (passwordResult.success) {
+            await message.reply(passwordResult.message);
+            console.log(`✅ 密碼驗證成功: 用戶 ${senderInfo} 已成為管理員`);
+            
+            // 如果有群組通知（雖然私訊不會有，但保留邏輯）
+            if (passwordResult.groupNotification) {
+                // 這裡可以實現發送到特定群組的通知
+                console.log(`📢 群組通知: ${passwordResult.groupNotification}`);
+            }
+        } else {
+            await message.reply(passwordResult.message);
+            console.log(`❌ 密碼驗證失敗: 用戶 ${senderInfo}`);
+        }
+        
+    } catch (error) {
+        console.log(`❌ 密碼驗證處理錯誤: ${error.message}`);
+        await message.reply('❌ 密碼驗證過程發生錯誤，請稍後再試');
     }
 }
 

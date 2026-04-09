@@ -71,7 +71,9 @@
   "security": {
     "admin_numbers": [],
     "authorized_groups": [],
-    "whitelist_enabled": true
+    "whitelist_enabled": true,
+    "admin_password": "288365",
+    "whitelist_file": "./data/whitelist.json"
   },
   "media_download": {
     "enabled": true,

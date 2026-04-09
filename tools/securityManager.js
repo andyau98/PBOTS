@@ -8,6 +8,80 @@ class SecurityManager {
         this.adminNumbers = this.securityConfig.admin_numbers || [];
         this.authorizedGroups = this.securityConfig.authorized_groups || [];
         this.whitelistEnabled = this.securityConfig.whitelist_enabled !== false;
+        this.adminPassword = this.securityConfig.admin_password || "288365";
+        this.whitelistFile = this.securityConfig.whitelist_file || "./data/whitelist.json";
+        
+        // 初始化白名單檔案
+        this.initializeWhitelistFile();
+    }
+
+    // 初始化白名單檔案
+    initializeWhitelistFile() {
+        const dir = path.dirname(this.whitelistFile);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        
+        if (!fs.existsSync(this.whitelistFile)) {
+            fs.writeFileSync(this.whitelistFile, JSON.stringify({
+                admins: [],
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }, null, 2));
+        }
+    }
+
+    // 載入白名單
+    loadWhitelist() {
+        try {
+            const data = fs.readFileSync(this.whitelistFile, 'utf8');
+            return JSON.parse(data);
+        } catch (error) {
+            console.log('❌ 載入白名單失敗:', error.message);
+            return { admins: [] };
+        }
+    }
+
+    // 保存白名單
+    saveWhitelist(whitelist) {
+        try {
+            whitelist.updated_at = new Date().toISOString();
+            fs.writeFileSync(this.whitelistFile, JSON.stringify(whitelist, null, 2));
+            return true;
+        } catch (error) {
+            console.log('❌ 保存白名單失敗:', error.message);
+            return false;
+        }
+    }
+
+    // 添加管理員到白名單
+    addToWhitelist(userId) {
+        const whitelist = this.loadWhitelist();
+        
+        if (!whitelist.admins.includes(userId)) {
+            whitelist.admins.push(userId);
+            const success = this.saveWhitelist(whitelist);
+            
+            if (success) {
+                // 同時更新內存中的管理員列表
+                if (!this.adminNumbers.includes(userId)) {
+                    this.adminNumbers.push(userId);
+                }
+                console.log(`✅ 已添加用戶 ${userId} 到白名單`);
+                return true;
+            }
+        } else {
+            console.log(`ℹ️ 用戶 ${userId} 已經在白名單中`);
+            return true;
+        }
+        
+        return false;
+    }
+
+    // 檢查是否在白名單中
+    isInWhitelist(userId) {
+        const whitelist = this.loadWhitelist();
+        return whitelist.admins.includes(userId);
     }
 
     // 檢查用戶權限
@@ -17,18 +91,15 @@ class SecurityManager {
             return true;
         }
 
-        // 檢查管理員權限
-        if (this.adminNumbers.includes(userId)) {
-            return true;
-        }
-
-        // 檢查授權群組權限
-        if (groupId && this.authorizedGroups.includes(groupId)) {
+        // 檢查管理員權限（從白名單檔案載入）
+        if (this.isInWhitelist(userId)) {
             return true;
         }
 
         // 檢查命令權限級別
         switch (commandPermission) {
+            case 'public':
+                return true; // 公開命令對所有用戶開放
             case 'basic':
                 return true; // 基礎命令對所有用戶開放
             case 'authorized':
@@ -38,6 +109,11 @@ class SecurityManager {
             default:
                 return false;
         }
+    }
+
+    // 檢查是否為公開命令（完全不受限制）
+    isPublicCommand(commandPermission) {
+        return commandPermission === 'public';
     }
 
     // 檢查是否為管理員
@@ -59,33 +135,72 @@ class SecurityManager {
             const userWhatsAppId = userId;
             
             // 檢查是否已經是管理員
-            if (this.isAdmin(userWhatsAppId)) {
+            if (this.isInWhitelist(userWhatsAppId)) {
                 return {
                     success: true,
-                    message: `✅ 您已經是管理員，無需再次認證。您的 ID: ${userWhatsAppId}`
+                    message: `✅ 您已經是管理員，無需再次認證。您的 ID: ${userWhatsAppId}`,
+                    alreadyAdmin: true
                 };
             }
             
-            // 添加用戶到管理員列表
-            const added = this.addAdmin(userWhatsAppId);
-            
-            if (added) {
-                return {
-                    success: true,
-                    message: `✅ 認證成功！您已被添加為管理員。您的 ID: ${userWhatsAppId}\n\n現在您可以訪問所有管理員功能。`
-                };
-            } else {
-                return {
-                    success: false,
-                    message: `❌ 認證失敗，請聯繫系統管理員。`
-                };
-            }
+            // 返回需要密碼驗證的訊息
+            return {
+                success: true,
+                message: `🔐 管理員認證\n\n請檢查私訊以完成密碼驗證。\n\n💡 機器人已私訊您，請查看私訊並輸入管理員密碼。`,
+                requiresPassword: true,
+                privateMessage: `🔐 管理員認證\n\n請輸入以下密碼完成認證：\n📱 **${this.adminPassword}**\n\n💡 請直接回覆此訊息輸入密碼。`
+            };
             
         } catch (error) {
             console.log('❌ 白名單認證處理失敗:', error.message);
             return {
                 success: false,
                 message: `❌ 認證過程發生錯誤: ${error.message}`
+            };
+        }
+    }
+
+    // 處理密碼驗證
+    async handlePasswordVerification(message, password, userId, isGroup, groupName) {
+        console.log(`🔐 處理密碼驗證來自 ${userId}`);
+        
+        try {
+            // 檢查密碼是否正確
+            if (password === this.adminPassword) {
+                // 添加用戶到白名單
+                const added = this.addToWhitelist(userId);
+                
+                if (added) {
+                    let response = {
+                        success: true,
+                        message: `✅ 認證成功！你已獲取管理員權限。\n\n📋 現在你可以使用以下管理員功能：\n• !security - 查看安全狀態\n• #TOPDF - 將最近圖片轉換為PDF\n• !cleanup - 清理舊文件\n\n💡 使用 !help 查看完整命令列表`,
+                        groupNotification: null
+                    };
+                    
+                    // 如果是群組訊息，準備群組通知
+                    if (isGroup && groupName) {
+                        response.groupNotification = `🎉 恭喜！用戶已成功通過管理員認證，現在可以訪問所有管理員功能。`;
+                    }
+                    
+                    return response;
+                } else {
+                    return {
+                        success: false,
+                        message: `❌ 添加管理員權限失敗，請聯繫系統管理員。`
+                    };
+                }
+            } else {
+                return {
+                    success: false,
+                    message: `❌ 密碼錯誤，請重新輸入正確的管理員密碼。`
+                };
+            }
+            
+        } catch (error) {
+            console.log('❌ 密碼驗證處理失敗:', error.message);
+            return {
+                success: false,
+                message: `❌ 密碼驗證過程發生錯誤: ${error.message}`
             };
         }
     }
