@@ -165,7 +165,7 @@ generateHelpMessage(userId)
 #### 支持的環境變量
 ```env
 # 安全配置
-ADMIN_NUMBERS=1234567890@c.us,0987654321@c.us
+ADMIN_NUMBERS=XXXXX@c.us,XXXXX@c.us
 AUTHORIZED_GROUPS=群組ID@g.us
 WHITELIST_ENABLED=true
 

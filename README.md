@@ -65,8 +65,8 @@ PBOTS/
 ```javascript
 const context = {
   // 身份識別
-  userId: "1234567890@c.us",        // 發言人的個人 ID
-  originId: "120363424519179359@g.us", // 訊息的來源 ID
+  userId: "XXXXX@c.us",        // 發言人的個人 ID
+  originId: "XXXXX@g.us", // 訊息的來源 ID
   isGroup: true,                    // 是否為群組訊息
   pushname: "阿A",                   // 用戶顯示名稱
   
@@ -76,7 +76,7 @@ const context = {
   
   // 群組資訊
   groupName: "My private test",
-  groupId: "120363424519179359@g.us"
+  groupId: "XXXXX@g.us"
 }
 ```
 

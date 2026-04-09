@@ -97,7 +97,7 @@ try {
 ```
 🚫 Unauthorized Access Attempt - 2026-04-09T06:45:00.000Z
    Command: !stats
-   Sender: 1234567890@c.us
+   Sender: XXXXX@c.us
    Type: Private
    Reason: Unauthorized access attempt for restricted command
    Message: !stats
@@ -140,7 +140,7 @@ engineering-whatsapp-bot/
 
 ### 步驟 1: 獲取您的 WhatsApp ID
 1. 向機器人發送任意訊息
-2. 查看終端機日誌，找到您的 ID 格式：`1234567890@c.us`
+2. 查看終端機日誌，找到您的 ID 格式：`XXXXX@c.us`
 3. 或者使用 `!security` 命令（如果已是管理員）
 
 ### 步驟 2: 修改配置檔案

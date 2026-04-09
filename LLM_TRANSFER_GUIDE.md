@@ -31,13 +31,13 @@
 #### userId (個人身份標識)
 - **定義**: `contact.id._serialized`
 - **用途**: 永遠指向發言人的個人 WhatsApp ID
-- **格式**: `1234567890@c.us`
+- **格式**: `XXXXX@c.us`
 - **重要性**: 所有白名單檢查、資料庫讀寫必須使用此 ID
 
 #### originId (來源標識)
 - **定義**: `message.from`
 - **用途**: 永遠指向訊息的來源 ID（群組或私訊）
-- **格式**: 群組 `120363424519179359@g.us`，私訊 `1234567890@c.us`
+- **格式**: 群組 `XXXXX@g.us`，私訊 `XXXXX@c.us`
 - **重要性**: 用於跨頻道回傳原點
 
 ### 標準化 Context 物件結構
@@ -45,8 +45,8 @@
 ```javascript
 const context = {
   // 身份識別 (必須使用)
-  userId: "1234567890@c.us",        // 發言人的個人 ID
-  originId: "120363424519179359@g.us", // 訊息的來源 ID
+  userId: "XXXXX@c.us",        // 發言人的個人 ID
+  originId: "XXXXX@g.us", // 訊息的來源 ID
   isGroup: true,                    // 是否為群組訊息
   pushname: "阿A",                   // 用戶顯示名稱
   
@@ -56,7 +56,7 @@ const context = {
   
   // 群組資訊（僅群組時有效）
   groupName: "My private test",
-  groupId: "120363424519179359@g.us"
+  groupId: "XXXXX@g.us"
 }
 ```
 

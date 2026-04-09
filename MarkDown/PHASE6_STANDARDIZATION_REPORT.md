@@ -21,8 +21,8 @@
 ```javascript
 const context = {
   // 身份識別
-  userId: "1234567890@c.us",        // 永遠指向發言人的個人 ID
-  originId: "120363424519179359@g.us", // 永遠指向訊息的來源 ID
+  userId: "XXXXX@c.us",        // 永遠指向發言人的個人 ID
+  originId: "XXXXX@g.us", // 永遠指向訊息的來源 ID
   isGroup: true,                    // 是否為群組訊息
   pushname: "阿A",                   // 用戶的 WhatsApp 顯示名稱
   
@@ -32,7 +32,7 @@ const context = {
   
   // 群組資訊（僅群組時有效）
   groupName: "My private test",
-  groupId: "120363424519179359@g.us"
+  groupId: "XXXXX@g.us"
 }
 ```
 

@@ -33,11 +33,11 @@
 {
   "timestamp": "2026-04-09T06:38:44.256Z",
   "isGroup": true,
-  "sender": "120363424519179359@g.us",
+  "sender": "XXXXX@g.us",
   "groupName": "My private test",
   "content": "!ping",
   "type": "chat",
-  "messageId": "false_120363424519179359@g.us_3A7EC37E668C47591B89_221422811127931@lid",
+  "messageId": "false_XXXXX@g.us_3A7EC37E668C47591B89_221422811127931@lid",
   "hasMedia": false,
   "mediaType": null
 }
