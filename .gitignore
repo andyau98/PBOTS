@@ -1,0 +1,134 @@
+# ============================================
+# EngineeringBot - Git Ignore Rules
+# 確保敏感文件和臨時文件不會被推送至 GitHub
+# ============================================
+
+# 🔐 環境變數和敏感配置
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# 🔑 密鑰和證書文件
+*.key
+*.pem
+*.crt
+*.cer
+*.pfx
+*.p12
+
+# 📱 WhatsApp 會話數據
+.wwebjs_auth/
+session-*
+*.session
+
+# 📦 Node.js 依賴
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 📊 日誌文件
+*.log
+logs/
+*.log.*
+
+# 🗂️ 臨時文件和緩存
+.tmp/
+temp/
+tmp/
+.cache/
+*.tmp
+*.temp
+
+# 📁 數據文件 (可根據需要調整)
+data/chats/*.json
+data/images/
+data/pdfs/
+# 注意：如果需要備份數據，可以取消註釋以下行
+# !data/whitelist.json
+
+# 🔄 備份文件 (Git 備份除外)
+backups/*
+!backups/README.md
+
+# 🖼️ 媒體文件 (自動下載的媒體)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.pdf
+*.mp3
+
+# 💻 操作系統文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 🔧 IDE 和編輯器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 📋 測試和覆蓋率報告
+coverage/
+.nyc_output/
+
+# 🏗️ 構建輸出
+dist/
+build/
+*.tgz
+*.tar.gz
+
+# 📝 文檔臨時文件
+*.aux
+*.log
+*.toc
+*.out
+
+# 🔄 版本控制臨時文件
+.git/
+.svn/
+
+# 🐳 Docker 相關
+Dockerfile
+.dockerignore
+
+# ☁️ 雲服務配置
+.elasticbeanstalk/
+.ebextensions/
+
+# 📊 性能分析
+*.cpuprofile
+*.heapsnapshot
+
+# 🔍 調試文件
+*.pdb
+*.idb
+
+# 🎯 特定文件忽略規則
+# 確保備份管理工具可執行但不上傳備份內容
+backup
+!backup_manager.py
+
+# 📋 自定義忽略規則
+# 添加項目特定的忽略規則在此
+
+# ============================================
+# 規則說明
+# ============================================
+# ✅ 安全保護：環境變數、密鑰文件
+# ✅ 臨時文件：日誌、緩存、臨時文件
+# ✅ 依賴管理：node_modules
+# ✅ 媒體文件：自動下載的圖片、視頻
+# ✅ 系統文件：操作系統和 IDE 文件
+# ✅ 構建輸出：編譯和打包文件
+
+# 🚨 重要提示：
+# 如果需要保留特定文件，使用 ! 前綴取消忽略
+# 例如：!data/important-config.json

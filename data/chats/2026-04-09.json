@@ -442,5 +442,17 @@
     "messageId": "false_120363424519179359@g.us_2A969538E72B8B506490_96894613209135@lid",
     "hasMedia": false,
     "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T16:52:32.169Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!whitelist",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2A8A25E5BF6581D23C32_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
   }
 ]

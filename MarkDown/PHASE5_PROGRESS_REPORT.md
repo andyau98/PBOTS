@@ -125,7 +125,7 @@ function logInfo(message) {
 ### 新增工具模組
 
 #### 1. WhitelistManager 類 (`tools/whitelistManager.js`)
-- **智能認證**: `!whitelist 288365` 指令自動獲取用戶 WhatsApp ID
+- **智能認證**: `!whitelist XXXXX` 指令自動獲取用戶 WhatsApp ID
 - **即時生效**: 無需重啟程式，權限立即生效
 - **配置同步**: 自動更新 `settings.json` 和 `.env` 文件
 - **動態幫助**: 根據用戶權限生成不同的幫助訊息
@@ -185,7 +185,7 @@ MAX_RECONNECT_ATTEMPTS=10
 
 ### 智能認證測試
 - ✅ **零干預啟動**: 程式啟動無需手動輸入，直接加載配置
-- ✅ **白名單認證**: `!whitelist 288365` 指令正確驗證暗號
+- ✅ **白名單認證**: `!whitelist XXXXX` 指令正確驗證暗號
 - ✅ **即時生效**: 權限立即生效，無需重啟程式
 - ✅ **配置同步**: 自動更新 `settings.json` 和 `.env` 文件
 - ✅ **錯誤處理**: 錯誤暗號和格式錯誤正確處理

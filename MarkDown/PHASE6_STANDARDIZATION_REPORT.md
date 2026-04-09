@@ -95,7 +95,7 @@ await contextStandardizer.safeSendMessage(
 → [記錄跨頻道交互] 
 → [群組回覆：請檢查私訊] 
 → [安全發送私訊：請輸入管理員密碼] 
-→ [用戶私訊回覆 288365] 
+→ [用戶私訊回覆 XXXXX] 
 → [驗證成功] 
 → [私訊回覆：✅ 認證成功。] 
 → [自動回群組：✅ @用戶 認證成功，已獲取管理員權限。]
@@ -106,7 +106,7 @@ await contextStandardizer.safeSendMessage(
 [私訊輸入 !whitelist] 
 → [標準化 Context 封裝] 
 → [私訊回覆：請輸入管理員密碼] 
-→ [用戶回覆 288365] 
+→ [用戶回覆 XXXXX] 
 → [驗證成功] 
 → [私訊回覆：✅ 認證成功。]
 ```
@@ -131,7 +131,7 @@ await contextStandardizer.safeSendMessage(
 ```
 群組輸入：!whitelist
 → 確認收到私訊：請輸入管理員密碼以獲取權限。
-→ 私訊回覆：288365
+→ 私訊回覆：XXXXX
 → 確認私訊回覆：✅ 認證成功。
 → 確認群組收到：✅ @用戶 認證成功，已獲取管理員權限。
 ```
@@ -140,7 +140,7 @@ await contextStandardizer.safeSendMessage(
 ```
 私訊輸入：!whitelist
 → 私訊回覆：請輸入管理員密碼以獲取權限。
-→ 回覆：288365
+→ 回覆：XXXXX
 → 確認私訊回覆：✅ 認證成功。
 ```
 
