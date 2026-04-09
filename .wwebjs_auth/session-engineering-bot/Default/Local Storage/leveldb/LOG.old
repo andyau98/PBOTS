@@ -1,2 +1,3 @@
-2026/04/09-22:05:38.360 5c8a02 Creating DB /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Local Storage/leveldb since it was missing.
-2026/04/09-22:05:38.366 5c8a02 Reusing MANIFEST /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Local Storage/leveldb/MANIFEST-000001
+2026/04/09-22:20:40.203 5cd17c Reusing MANIFEST /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Local Storage/leveldb/MANIFEST-000001
+2026/04/09-22:20:40.206 5cd17c Recovering log #3
+2026/04/09-22:20:40.206 5cd17c Reusing old log /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Local Storage/leveldb/000003.log 

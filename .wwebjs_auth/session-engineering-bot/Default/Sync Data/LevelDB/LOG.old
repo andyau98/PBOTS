@@ -1,2 +1,3 @@
-2026/04/09-22:05:38.313 5c89b4 Creating DB /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Sync Data/LevelDB since it was missing.
-2026/04/09-22:05:38.325 5c89b4 Reusing MANIFEST /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/04/09-22:20:40.163 5cd132 Reusing MANIFEST /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/04/09-22:20:40.166 5cd132 Recovering log #3
+2026/04/09-22:20:40.166 5cd132 Reusing old log /Users/andyau/Documents/trae_projects/PBOTS/.wwebjs_auth/session-engineering-bot/Default/Sync Data/LevelDB/000003.log 

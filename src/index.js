@@ -14,35 +14,16 @@ const MediaDownloader = require('../tools/mediaDownloader');
 const ImageToPdf = require('../tools/imageToPdf');
 const CleanupManager = require('../tools/cleanup');
 const ContextManager = require('../tools/contextManager');
+const ContextStandardizer = require('../tools/contextStandardizer');
 
 let messageLogger;
 let securityManager;
 let mediaDownloader;
 let imageToPdf;
 let contextManager;
+let contextStandardizer;
 let cleanupManager;
 let healthMonitor;
-
-// 跨頻道交互追蹤
-const pendingInteractions = new Map();
-
-// 清理過期的交互記錄（30分鐘）
-setInterval(() => {
-    const now = Date.now();
-    const maxAge = 30 * 60 * 1000; // 30分鐘
-    
-    let cleanedCount = 0;
-    for (const [userId, interaction] of pendingInteractions.entries()) {
-        if (now - interaction.timestamp > maxAge) {
-            pendingInteractions.delete(userId);
-            cleanedCount++;
-        }
-    }
-    
-    if (cleanedCount > 0) {
-        console.log(`🧹 清理了 ${cleanedCount} 個過期的跨頻道交互記錄`);
-    }
-}, 10 * 60 * 1000); // 每10分鐘檢查一次
 try {
     const configData = fs.readFileSync(configPath, 'utf8');
     config = JSON.parse(configData);
@@ -96,6 +77,7 @@ try {
     imageToPdf = new ImageToPdf(config);
     cleanupManager = new CleanupManager(config);
     contextManager = new ContextManager(config);
+    contextStandardizer = new ContextStandardizer();
 
 // 初始化 WhatsApp 客戶端
 const client = new Client({
@@ -139,52 +121,46 @@ client.on('disconnected', (reason) => {
 
 // 訊息接收事件
 client.on('message', async (message) => {
-    const messageBody = message.body || '';
-    const senderInfo = message._data.notifyName || message.from;
-    const isGroup = message.from.includes('@g.us');
-    
-    // 獲取群組名稱（如果是群組訊息）
-    let groupName = null;
-    let groupId = null;
-    if (isGroup) {
-        const chat = await message.getChat();
-        groupName = chat.name || 'Unknown Group';
-        groupId = chat.id._serialized;
-    }
-    
-    const sourcePrefix = isGroup ? `[GROUP - ${groupName}]` : '[PRIVATE]';
-    
-    // 添加媒體標識符
-    const mediaIndicator = message.hasMedia ? ' 📎' : '';
-    
-    // 記錄接收到的訊息
-    console.log(`📩 ${sourcePrefix} ${senderInfo}: ${messageBody}${mediaIndicator}`);
-    
-    // 記錄訊息到 JSON 文件
-    await messageLogger.logMessage(message, senderInfo, groupName);
-    
-    // 自動下載媒體文件
-    if (message.hasMedia && mediaDownloader.autoDownload) {
-        await mediaDownloader.downloadMedia(message, senderInfo, groupName);
-    }
-    
-    // 處理命令
-        if (messageBody.startsWith('!') || messageBody.startsWith('#')) {
-            await handleCommand(message, messageBody, senderInfo, sourcePrefix, isGroup, groupName, groupId);
+    try {
+        // 第一步：標準化 Context 封裝
+        const context = await contextStandardizer.standardizeContext(message);
+        
+        // 添加媒體標識符
+        const mediaIndicator = message.hasMedia ? ' 📎' : '';
+        const sourcePrefix = context.isGroup ? `[GROUP - ${context.groupName}]` : '[PRIVATE]';
+        
+        // 記錄接收到的訊息
+        console.log(`📩 ${sourcePrefix} ${context.pushname}: ${context.messageBody}${mediaIndicator}`);
+        
+        // 記錄訊息到 JSON 文件
+        await messageLogger.logMessage(message, context.pushname, context.groupName);
+        
+        // 自動下載媒體文件
+        if (message.hasMedia && mediaDownloader.autoDownload) {
+            await mediaDownloader.downloadMedia(message, context.pushname, context.groupName);
+        }
+        
+        // 處理命令
+        if (context.messageBody.startsWith('!') || context.messageBody.startsWith('#')) {
+            await handleCommand(context);
         }
         
         // 處理密碼驗證（非命令開頭的訊息）
-        else if (!isGroup && !messageBody.startsWith('!') && !messageBody.startsWith('#')) {
-            await handlePasswordVerification(message, messageBody, message.from, senderInfo);
+        else if (!context.isGroup && !context.messageBody.startsWith('!') && !context.messageBody.startsWith('#')) {
+            await handlePasswordVerification(context);
         }
+        
+    } catch (error) {
+        console.log(`❌ 訊息處理失敗: ${error.message}`);
+    }
 });
 
 // 命令處理函數
-async function handleCommand(message, commandText, senderInfo, sourcePrefix, isGroup, groupName, groupId) {
-    const command = commandText.toLowerCase().trim();
-    const userId = message.from;
+async function handleCommand(context) {
+    const command = context.messageBody.split(' ')[0].toLowerCase().trim();
+    const sourcePrefix = context.isGroup ? `[GROUP - ${context.groupName}]` : '[PRIVATE]';
     
-    console.log(`🔄 處理命令: ${command} 來自 ${sourcePrefix} ${senderInfo}`);
+    console.log(`🔄 處理命令: ${command} 來自 ${sourcePrefix} ${context.pushname}`);
     
     try {
         // 檢查群組回覆設置
