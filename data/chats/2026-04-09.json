@@ -1,0 +1,74 @@
+[
+  {
+    "timestamp": "2026-04-09T12:38:05.090Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!help",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2AF27270B4697CB9670D_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T12:38:23.329Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!ping",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2ABBAE0AF3D3412B84C4_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T12:38:37.042Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!whitelist",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2AC72A06FB9F62DBEBB1_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T12:39:00.487Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!whitelist",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2A670D75AE05ABD2FCEB_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T12:39:10.290Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!whitelist 288365",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2A5BD1F589F8E64F650C_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T12:39:35.179Z",
+    "isGroup": false,
+    "sender": "96894613209135@lid",
+    "senderName": "阿A",
+    "groupName": null,
+    "content": "!whitelist",
+    "type": "chat",
+    "messageId": "false_96894613209135@lid_2A7CF60B8EBF3E2863F0",
+    "hasMedia": false,
+    "mediaType": null
+  }
+]

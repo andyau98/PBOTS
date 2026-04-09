@@ -1,0 +1,24 @@
+
+🚫 Unauthorized Access Attempt - 2026-04-09T12:38:37.042Z
+   Command: !whitelist
+   Sender: 120363424519179359@g.us
+   Type: Group
+   Reason: Unauthorized access attempt for public command
+   Message: !whitelist
+───────────────────────────────────────────────────
+
+🚫 Unauthorized Access Attempt - 2026-04-09T12:39:00.488Z
+   Command: !whitelist
+   Sender: 120363424519179359@g.us
+   Type: Group
+   Reason: Unauthorized access attempt for public command
+   Message: !whitelist
+───────────────────────────────────────────────────
+
+🚫 Unauthorized Access Attempt - 2026-04-09T12:39:35.179Z
+   Command: !whitelist
+   Sender: 96894613209135@lid
+   Type: Private
+   Reason: Unauthorized access attempt for public command
+   Message: !whitelist
+───────────────────────────────────────────────────
