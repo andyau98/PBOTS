@@ -13,13 +13,36 @@ const SecurityManager = require('../tools/securityManager');
 const MediaDownloader = require('../tools/mediaDownloader');
 const ImageToPdf = require('../tools/imageToPdf');
 const CleanupManager = require('../tools/cleanup');
+const ContextManager = require('../tools/contextManager');
 
 let messageLogger;
 let securityManager;
 let mediaDownloader;
 let imageToPdf;
+let contextManager;
 let cleanupManager;
+let healthMonitor;
 
+// 跨頻道交互追蹤
+const pendingInteractions = new Map();
+
+// 清理過期的交互記錄（30分鐘）
+setInterval(() => {
+    const now = Date.now();
+    const maxAge = 30 * 60 * 1000; // 30分鐘
+    
+    let cleanedCount = 0;
+    for (const [userId, interaction] of pendingInteractions.entries()) {
+        if (now - interaction.timestamp > maxAge) {
+            pendingInteractions.delete(userId);
+            cleanedCount++;
+        }
+    }
+    
+    if (cleanedCount > 0) {
+        console.log(`🧹 清理了 ${cleanedCount} 個過期的跨頻道交互記錄`);
+    }
+}, 10 * 60 * 1000); // 每10分鐘檢查一次
 try {
     const configData = fs.readFileSync(configPath, 'utf8');
     config = JSON.parse(configData);
@@ -67,11 +90,12 @@ try {
 }
 
 // 初始化工具模組
-messageLogger = new MessageLogger(config);
-securityManager = new SecurityManager(config);
-mediaDownloader = new MediaDownloader(config);
-imageToPdf = new ImageToPdf(config);
-cleanupManager = new CleanupManager(config);
+    messageLogger = new MessageLogger(config);
+    securityManager = new SecurityManager(config);
+    mediaDownloader = new MediaDownloader(config);
+    imageToPdf = new ImageToPdf(config);
+    cleanupManager = new CleanupManager(config);
+    contextManager = new ContextManager(config);
 
 // 初始化 WhatsApp 客戶端
 const client = new Client({
@@ -216,22 +240,43 @@ async function handleCommand(message, commandText, senderInfo, sourcePrefix, isG
                 const whitelistResult = await securityManager.handleWhitelistCommand(message, commandText, userId);
                 await message.reply(whitelistResult.message);
                 
-                if (whitelistResult.requiresPassword && whitelistResult.privateMessage) {
-                    // 發送私訊給用戶
+                if (whitelistResult.requiresPassword) {
+                    // 記錄跨頻道交互上下文
+                    if (isGroup && groupId) {
+                        const contact = await message.getContact();
+                        const userWhatsAppId = contact.id._serialized; // 正確的WhatsApp ID格式
+                        
+                        pendingInteractions.set(userWhatsAppId, {
+                            originGroupId: message.from, // 原始群組ID
+                            originGroupName: groupName,
+                            command: command,
+                            userDisplayName: senderInfo,
+                            timestamp: Date.now()
+                        });
+                        console.log(`📝 記錄跨頻道交互: 用戶 ${senderInfo} (${userWhatsAppId}) 從群組 ${groupName} 發起 ${command}`);
+                    }
+                    
+                    // 發送私訊
                     try {
                         const chat = await message.getChat();
                         if (chat.isGroup) {
-                            // 如果是群組，獲取用戶的私訊聊天
+                            // 如果是群組，獲取正確的用戶ID並發送私訊
                             const contact = await message.getContact();
-                            await contact.sendMessage(whitelistResult.privateMessage);
-                            console.log(`🔐 已私訊用戶 ${senderInfo} 要求密碼驗證`);
+                            const userWhatsAppId = contact.id._serialized; // 正確的WhatsApp ID格式
+                            
+                            console.log(`📱 嘗試發送私訊給用戶: ${userWhatsAppId} (${senderInfo})`);
+                            
+                            // 使用正確的私訊發送方式
+                            await client.sendMessage(userWhatsAppId, "請輸入管理員密碼以獲取權限。");
+                            console.log(`✅ 已成功私訊用戶 ${senderInfo} 要求密碼驗證`);
                         } else {
                             // 如果是私訊，直接回覆
-                            await message.reply(whitelistResult.privateMessage);
+                            await message.reply("請輸入管理員密碼以獲取權限。");
                             console.log(`🔐 已在私訊中要求用戶 ${senderInfo} 進行密碼驗證`);
                         }
                     } catch (error) {
                         console.log(`❌ 發送私訊失敗: ${error.message}`);
+                        console.log(`❌ 詳細錯誤資訊:`, error);
                     }
                 } else if (whitelistResult.alreadyAdmin) {
                     console.log(`✅ 用戶 ${senderInfo} 已經是管理員`);
@@ -298,8 +343,22 @@ async function handlePasswordVerification(message, password, userId, senderInfo)
         
         console.log(`🔐 處理密碼驗證請求來自 ${senderInfo} (ID: ${userId})`);
         
-        // 檢查用戶是否已經在進行白名單認證流程
-        // 這裡我們假設任何私訊的數字都可能是密碼驗證嘗試
+        // 獲取正確的用戶ID格式
+        const contact = await message.getContact();
+        const userWhatsAppId = contact.id._serialized;
+        
+        // 檢查是否有跨頻道交互記錄
+        const pendingInteraction = pendingInteractions.get(userWhatsAppId);
+        console.log(`📋 檢查跨頻道交互記錄: 用戶 ${userWhatsAppId} ${pendingInteraction ? '有記錄' : '無記錄'}`);
+        if (pendingInteraction) {
+            console.log(`📋 交互記錄詳情:`, {
+                originGroupId: pendingInteraction.originGroupId,
+                originGroupName: pendingInteraction.originGroupName,
+                command: pendingInteraction.command,
+                userDisplayName: pendingInteraction.userDisplayName,
+                timestamp: new Date(pendingInteraction.timestamp).toISOString()
+            });
+        }
         
         // 使用 securityManager 處理密碼驗證
         const passwordResult = await securityManager.handlePasswordVerification(
@@ -311,13 +370,26 @@ async function handlePasswordVerification(message, password, userId, senderInfo)
         );
         
         if (passwordResult.success) {
-            await message.reply(passwordResult.message);
+            // 私訊回覆用戶
+            await message.reply("✅ 認證成功。");
             console.log(`✅ 密碼驗證成功: 用戶 ${senderInfo} 已成為管理員`);
             
-            // 如果有群組通知（雖然私訊不會有，但保留邏輯）
-            if (passwordResult.groupNotification) {
-                // 這裡可以實現發送到特定群組的通知
-                console.log(`📢 群組通知: ${passwordResult.groupNotification}`);
+            // 檢查是否有跨頻道交互記錄（從群組觸發）
+            if (pendingInteraction && pendingInteraction.originGroupId) {
+                try {
+                    // 獲取原始群組聊天
+                    const groupChat = await client.getChatById(pendingInteraction.originGroupId);
+                    const groupNotification = `✅ @${pendingInteraction.userDisplayName || senderInfo} 認證成功，已獲取管理員權限。`;
+                    
+                    await groupChat.sendMessage(groupNotification);
+                    console.log(`📢 已發送群組通知到 ${pendingInteraction.originGroupName || pendingInteraction.originGroupId}`);
+                    
+                    // 清理交互記錄
+                    pendingInteractions.delete(userWhatsAppId);
+                    
+                } catch (error) {
+                    console.log(`❌ 發送群組通知失敗: ${error.message}`);
+                }
             }
         } else {
             await message.reply(passwordResult.message);

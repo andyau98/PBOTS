@@ -136,11 +136,25 @@ class SecurityManager {
             
             // 檢查是否已經是管理員
             if (this.isInWhitelist(userWhatsAppId)) {
-                return {
-                    success: true,
-                    message: `✅ 您已經是管理員，無需再次認證。您的 ID: ${userWhatsAppId}`,
-                    alreadyAdmin: true
-                };
+                console.log(`✅ 用戶 ${userId} 已經是管理員`);
+                
+                // 檢查是否為私訊
+                const chat = await message.getChat();
+                if (chat.isGroup) {
+                    return {
+                        success: true,
+                        message: `✅ 你已經有管理員權限喇！`,
+                        alreadyAdmin: true,
+                        requiresPassword: false
+                    };
+                } else {
+                    return {
+                        success: true,
+                        message: `✅ 你已經有管理員權限喇！`,
+                        alreadyAdmin: true,
+                        requiresPassword: false
+                    };
+                }
             }
             
             // 返回需要密碼驗證的訊息
@@ -148,7 +162,7 @@ class SecurityManager {
                 success: true,
                 message: `🔐 管理員認證\n\n請檢查私訊以完成密碼驗證。\n\n💡 機器人已私訊您，請查看私訊並輸入管理員密碼。`,
                 requiresPassword: true,
-                privateMessage: `🔐 管理員認證\n\n請輸入以下密碼完成認證：\n📱 **${this.adminPassword}**\n\n💡 請直接回覆此訊息輸入密碼。`
+                privateMessage: `🔐 管理員認證\n\n請輸入管理員密碼以獲取權限。\n\n💡 請直接回覆此訊息輸入正確的管理員密碼。`
             };
             
         } catch (error) {
@@ -173,7 +187,7 @@ class SecurityManager {
                 if (added) {
                     let response = {
                         success: true,
-                        message: `✅ 認證成功！你已獲取管理員權限。\n\n📋 現在你可以使用以下管理員功能：\n• !security - 查看安全狀態\n• #TOPDF - 將最近圖片轉換為PDF\n• !cleanup - 清理舊文件\n\n💡 使用 !help 查看完整命令列表`,
+                        message: `✅ 密碼正確，認證成功。`,
                         groupNotification: null
                     };
                     

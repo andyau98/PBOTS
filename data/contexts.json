@@ -1,0 +1,30 @@
+{
+  "120363424519179359@g.us_!whitelist_1775743618143": {
+    "sessionId": "120363424519179359@g.us_!whitelist_1775743618143",
+    "userId": "120363424519179359@g.us",
+    "command": "!whitelist",
+    "originalMessage": "!whitelist",
+    "isGroup": true,
+    "groupId": "120363424519179359@g.us",
+    "groupName": "My prvate test",
+    "createdAt": "2026-04-09T14:06:58.143Z",
+    "updatedAt": "2026-04-09T14:06:58.143Z",
+    "status": "pending",
+    "steps": [],
+    "currentStep": 0
+  },
+  "120363424519179359@g.us_!whitelist_1775744054412": {
+    "sessionId": "120363424519179359@g.us_!whitelist_1775744054412",
+    "userId": "120363424519179359@g.us",
+    "command": "!whitelist",
+    "originalMessage": "!whitelist",
+    "isGroup": true,
+    "groupId": "120363424519179359@g.us",
+    "groupName": "My prvate test",
+    "createdAt": "2026-04-09T14:14:14.412Z",
+    "updatedAt": "2026-04-09T14:14:14.412Z",
+    "status": "pending",
+    "steps": [],
+    "currentStep": 0
+  }
+}

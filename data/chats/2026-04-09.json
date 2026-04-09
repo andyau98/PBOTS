@@ -250,5 +250,53 @@
     "messageId": "false_96894613209135@lid_2ACD64B3F017F0E6325F",
     "hasMedia": false,
     "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T14:06:44.171Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!help",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2ABEEFBE33376C445302_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T14:06:58.112Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!whitelist",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2AE2D92363D300C563A0_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T14:14:14.390Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!whitelist",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2A31D4198C412A96724C_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
+  },
+  {
+    "timestamp": "2026-04-09T14:21:44.534Z",
+    "isGroup": true,
+    "sender": "120363424519179359@g.us",
+    "senderName": "阿A",
+    "groupName": "My prvate test",
+    "content": "!whitelist",
+    "type": "chat",
+    "messageId": "false_120363424519179359@g.us_2A1432A988010040F317_96894613209135@lid",
+    "hasMedia": false,
+    "mediaType": null
   }
 ]
