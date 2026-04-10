@@ -50,12 +50,6 @@ class HealthMonitor {
         this.errorCount++;
     }
 
-    // 記錄命令執行
-    recordCommand(commandName) {
-        console.log(`📊 HealthMonitor 記錄命令執行: !${commandName}`);
-        // 這裡可以擴展為記錄更詳細的命令統計
-    }
-
     // 獲取系統信息
     getSystemInfo() {
         const totalMemory = os.totalmem();

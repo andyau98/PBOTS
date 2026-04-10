@@ -1,20 +1,30 @@
 {
   "name": "engineering-whatsapp-bot",
-  "version": "1.0.0",
-  "description": "Engineering WhatsApp Bot with QR login functionality",
-  "main": "src/index.js",
+  "version": "2.0.0-GroupSession",
+  "description": "Engineering WhatsApp Bot - Phase 7 Group Session Optimization with Excel Logic Engine",
+  "version_phase": "Phase 7 - Group Session Fix",
+  "version_date": "2026-04-10",
+  "main": "working_bot.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node src/index.js"
+    "start": "node working_bot.js",
+    "dev": "node working_bot.js",
+    "check": "node init_check.js",
+    "archive": "echo '所有舊版本已移至 /archive 資料夾'"
   },
-  "keywords": ["whatsapp", "bot", "engineering", "automation"],
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "engineering",
+    "automation"
+  ],
   "author": "Engineering Team",
   "license": "MIT",
   "dependencies": {
-    "whatsapp-web.js": "^1.23.0",
-    "qrcode-terminal": "^0.12.0",
     "dotenv": "^16.3.1",
-    "pdfkit": "^0.14.0"
+    "exceljs": "^4.4.0",
+    "pdfkit": "^0.14.0",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.23.0"
   },
   "engines": {
     "node": ">=14.0.0"
