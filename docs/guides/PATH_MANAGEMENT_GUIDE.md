@@ -12,6 +12,7 @@
 - **所有工具模組路徑統一**
 - **配置檔案路徑標準化**
 - **跨平台兼容性實現**
+- **統一文檔管理** (`docs/` 目錄結構)
 
 ### 📈 驗證結果
 - **總檢查項目**: 33 個
@@ -28,6 +29,9 @@
 // 位置: configs/path_manager.js
 // 功能: 全專案路徑的唯一來源
 
+// 使用依賴注入模式
+const path = require('path');
+
 const PathManager = {
     // 根目錄和主要資料夾
     ROOT: process.cwd(),
@@ -35,7 +39,7 @@ const PathManager = {
     TOOLS: path.join(ROOT, 'tools'),
     CONFIGS: path.join(ROOT, 'configs'),
     BACKUPS: path.join(ROOT, 'backups'),
-    MARKDOWN: path.join(ROOT, 'MarkDown'),
+    DOCS: path.join(ROOT, 'docs'),
     LOGS: path.join(ROOT, 'logs'),
     SRC: path.join(ROOT, 'src'),
     TEMPLATES: path.join(ROOT, 'Templates'),
@@ -48,6 +52,59 @@ const PathManager = {
     
     // 子資料夾
     CHATS: path.join(ROOT, 'data', 'chats'),
+    
+    // 目錄創建方法
+    ensureDirectoryExists(dirPath) {
+        if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+            console.log(`✅ 已創建目錄: ${dirPath}`);
+        }
+    }
+};
+
+module.exports = PathManager;
+```
+
+#### 2. 依賴注入規範 (Phase 7 標準化)
+所有工具必須使用 PathManager 依賴注入模式：
+
+```javascript
+// ✅ 正確的依賴注入模式
+constructor(config, pathManager = null, otherDependencies = null) {
+    this.config = config;
+    
+    // Phase 7 標準化依賴注入
+    this.pathManager = pathManager || require('../configs/path_manager');
+    
+    // 其他依賴注入
+    this.otherDependencies = otherDependencies;
+}
+
+// ❌ 錯誤的硬編碼模式（禁止使用）
+constructor(config) {
+    this.config = config;
+    this.pathManager = require('../configs/path_manager'); // 硬編碼路徑
+}
+```
+
+#### 3. 12 個工具的 PathManager 依賴狀態
+所有 12 個工具都已正確實現 PathManager 依賴注入：
+
+✅ **已正確實現的工具 (11個)**
+- SecurityManager - 安全與權限管理
+- MessageLogger - 訊息記錄系統  
+- MediaDownloader - 媒體文件下載
+- ImageToPdf - 圖片轉PDF工具
+- CleanupManager - 系統清理管理
+- HealthMonitor - 健康監控系統
+- LogicEngine - Excel 邏輯引擎
+- CommandHandler - 統一指令處理器
+- ProfileHandler - 個人資料處理
+- ExcelHandler - Excel 功能處理
+- PrivateMessageHandler - 私訊處理
+
+✅ **不需要 PathManager 的工具 (1個)**
+- ContextStandardizer - 上下文標準化（不涉及文件操作）
     IMAGES: path.join(ROOT, 'data', 'images'),
     PDFS: path.join(ROOT, 'data', 'pdfs'),
     

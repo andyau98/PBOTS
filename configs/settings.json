@@ -21,7 +21,9 @@
     "qr_login": true,
     "persistent_session": true,
     "basic_commands": true,
-    "reply_in_group": true
+    "reply_in_group": true,
+    "message_logging": true,
+    "auto_download_media": true
   },
   "message_logging": {
     "enabled": true,

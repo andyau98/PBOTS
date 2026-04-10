@@ -1,67 +1,216 @@
 const ExcelJS = require('exceljs');
 const fs = require('fs');
 const path = require('path');
-const PathManager = require('../configs/path_manager');
+
+/**
+ * PBOTS Phase 7 - LogicEngine 群組對答優化版本
+ * 嚴格遵守 PBOTS_Standard_Architecture.md 規範
+ * 
+ * 核心功能：
+ * 1. 群組會話鎖：以 originId 鎖定，只接收發起人訊息
+ * 2. 互動反饋：每次回答回覆 @pushname 收到: [內容]
+ * 3. 中斷邏輯：支援 !cancel 立即終止會話
+ * 4. 數據對接：從 data/robot_map.xlsx 讀取，存入 data/excel_results/
+ */
 
 class LogicEngine {
-    constructor(config = null, securityManager = null) {
-        this.mapFile = PathManager.TOOLS + '/robot_map.xlsx';
+    /**
+     * 標準構造函數注入 - 嚴格遵守 PBOTS 規範
+     * @param {Object} dependencies - 依賴注入對象
+     * @param {Object} dependencies.pathManager - 路徑管理器
+     * @param {Object} dependencies.securityManager - 安全管理器
+     * @param {Object} dependencies.contextStandardizer - 上下文標準化器
+     */
+    constructor({ pathManager, securityManager, contextStandardizer }) {
+        // 依賴注入 - 必須使用 configs/path_manager.js
+        this.pathManager = pathManager;
+        this.securityManager = securityManager;
+        this.contextStandardizer = contextStandardizer;
+        
+        // 路徑管理 - 嚴禁使用相對路徑字串
+        this.mapFile = this.pathManager.DATA + '/robot_map.xlsx';
+        this.resultsDir = this.pathManager.DATA + '/excel_results/';
+        
+        // 會話管理 - Phase 7 群組會話鎖
+        this.userSessions = new Map(); // userId -> sessionData
+        this.groupSessions = new Map(); // originId -> { initiatorId, currentStep, data }
         this.workbook = null;
         this.availableSheets = [];
-        this.userSessions = new Map(); // 用戶會話緩存
-        this.groupSessions = new Map(); // 群組會話緩存 (chatId -> userId)
-        this.config = config;
-        this.securityManager = securityManager;
+        
+        // 確保結果目錄存在
+        this.pathManager.ensureDirectoryExists(this.resultsDir);
     }
 
-    // 檢查用戶權限
-    checkPermission(userId, chatId = null, permissionLevel = 'basic') {
-        if (this.securityManager) {
-            return this.securityManager.checkPermission(userId, chatId, permissionLevel);
+    /**
+     * 標準 execute 方法 - PBOTS 架構規範
+     * 1. 權限檢查
+     * 2. 跨頻道處理
+     * 3. 會話鎖定
+     * @param {Object} context - 標準化上下文
+     * @param {string} command - 指令名稱
+     * @returns {Promise<Object>} 執行結果
+     */
+    async execute(context, command) {
+        try {
+            // 1. 權限檢查 - 第一步必須檢查
+            if (!this.securityManager.isWhiteListed(context.userId)) {
+                throw new Error('🚫 權限不足，無法使用 LogicEngine');
+            }
+            
+            // 2. 跨頻道處理 - 記錄交互
+            await this.contextStandardizer.recordInteraction(context, command);
+            
+            // 3. 會話鎖定 - 群組環境下鎖定發起人
+            if (context.isGroup) {
+                this.lockSession(context.originId, context.userId);
+            }
+            
+            // 4. 執行邏輯 - group-pm-group 流程
+            const result = await this.startForm(context, command);
+            
+            // 如果是群組環境且需要私訊互動，返回特殊結果
+            if (context.isGroup && result.requiresPrivateMessage) {
+                return {
+                    success: true,
+                    message: result.message,
+                    requiresPrivateMessage: true,
+                    privateMessage: result.privateMessage,
+                    confirmation: result.confirmation
+                };
+            }
+            
+            return result;
+            
+        } catch (error) {
+            console.error('❌ LogicEngine execute 錯誤:', error.message);
+            throw error;
         }
-        // 如果沒有 SecurityManager，預設允許
+    }
+
+    /**
+     * 群組會話鎖定 - Phase 7 核心功能
+     * 建立 groupSessions Map，儲存 { initiatorId, currentStep, data }
+     * @param {string} originId - 群組 ID
+     * @param {string} initiatorId - 發起人 ID
+     */
+    lockSession(originId, initiatorId) {
+        this.groupSessions.set(originId, {
+            initiatorId: initiatorId,
+            currentStep: 'start',
+            data: new Map()
+        });
+        console.log(`🔒 群組 ${originId} 鎖定用戶 ${initiatorId}`);
+    }
+
+    /**
+     * 檢查群組會話鎖定
+     * 邏輯攔截：若該群組已有會話，非發起人的訊息一律無視
+     * @param {string} originId - 群組 ID
+     * @param {string} userId - 當前用戶 ID
+     * @returns {boolean} 是否被鎖定
+     */
+    isGroupSessionLocked(originId, userId) {
+        const session = this.groupSessions.get(originId);
+        if (session && session.initiatorId !== userId) {
+            console.log(`⛔ 群組 ${originId} 已鎖定給用戶 ${session.initiatorId}，忽略用戶 ${userId} 的訊息`);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 檢查用戶是否在會話中
+     * @param {string} userId - 用戶 ID
+     * @param {string} originId - 來源 ID (可選)
+     * @returns {boolean} 是否在會話中
+     */
+    isUserInSession(userId, originId = null) {
+        if (!this.userSessions.has(userId)) {
+            return false;
+        }
+        
+        const session = this.userSessions.get(userId);
+        
+        // 如果在群組中，檢查群組鎖定
+        if (originId && session.originId !== originId) {
+            return false;
+        }
+        
         return true;
     }
 
-    // 加載 Excel 工作簿
-    async loadWorkbook() {
+    /**
+     * 開始新的填表流程
+     * @param {Object} context - 標準化上下文
+     * @param {string} sheetName - 工作表名稱
+     * @returns {Promise<Object>} 第一個問題
+     */
+    async startForm(context, sheetName = 'trial') {
+        try {
+            const { userId, originId, pushname, isGroup } = context;
+            
+            // 加載 Excel 模板 - 從 data/robot_map.xlsx 讀取
+            const logicTree = await this.loadTemplate(sheetName);
+            
+            // 初始化用戶會話
+            this.userSessions.set(userId, {
+                sheetName: sheetName,
+                logicTree: logicTree,
+                answers: new Map(),
+                currentQuestion: 'Q1', // 從第一個問題開始
+                startTime: new Date(),
+                targetCells: new Map(),
+                originId: originId,
+                pushname: pushname,
+                isGroup: isGroup
+            });
+            
+            // 更新群組會話狀態
+            if (isGroup) {
+                const groupSession = this.groupSessions.get(originId);
+                if (groupSession) {
+                    groupSession.currentStep = 'question_1';
+                    groupSession.data.set('sheetName', sheetName);
+                }
+            }
+            
+            console.log(`🚀 ${isGroup ? '群組' : '私訊'}會話啟動: ${userId} -> ${sheetName}`);
+            
+            // 獲取第一個問題
+            return await this.getNextQuestion(context, null);
+            
+        } catch (error) {
+            console.error('❌ 啟動填表流程失敗:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 加載 Excel 模板
+     * @param {string} sheetName - 工作表名稱
+     * @returns {Promise<Map>} 邏輯樹
+     */
+    async loadTemplate(sheetName = 'trial') {
         try {
             console.log('📊 正在加載 Excel 邏輯地圖...');
             
+            // 檢查文件是否存在，不存在則創建默認模板
             if (!fs.existsSync(this.mapFile)) {
-                throw new Error(`邏輯地圖檔案不存在: ${this.mapFile}`);
+                await this.createDefaultTemplate();
             }
 
+            // 加載工作簿
             this.workbook = new ExcelJS.Workbook();
             await this.workbook.xlsx.readFile(this.mapFile);
             
             // 獲取所有工作表名稱
             this.availableSheets = this.workbook.worksheets.map(ws => ws.name);
             
-            console.log(`✅ Excel 邏輯地圖加載完成，可用工作表: ${this.availableSheets.join(', ')}`);
-            return this.workbook;
-            
-        } catch (error) {
-            console.log('❌ 加載 Excel 邏輯地圖失敗:', error.message);
-            throw error;
-        }
-    }
-
-    // 加載指定工作表
-    async loadSheet(sheetName) {
-        try {
-            // 確保工作簿已加載
-            if (!this.workbook) {
-                await this.loadWorkbook();
-            }
-
-            // 檢查工作表是否存在
+            // 加載指定工作表
             const worksheet = this.workbook.getWorksheet(sheetName);
             if (!worksheet) {
                 throw new Error(`工作表 "${sheetName}" 不存在`);
             }
-
-            console.log(`📋 正在加載工作表: ${sheetName}`);
             
             const logicTree = new Map();
             const headers = [];
@@ -83,304 +232,327 @@ class LogicEngine {
                     }
                 });
 
-                // 確保 ID 存在
-                if (questionData.ID) {
-                    // 處理選項字串轉陣列
-                    if (questionData.Options) {
-                        questionData.Options = questionData.Options.split(',').map(opt => opt.trim());
-                    }
-                    
-                    logicTree.set(questionData.ID.toString(), questionData);
+                // 確保 QuestionID 存在
+                if (questionData.QuestionID) {
+                    logicTree.set(questionData.QuestionID.toString(), questionData);
                 }
             });
 
-            console.log(`✅ 工作表 "${sheetName}" 加載完成，共 ${logicTree.size} 個問題`);
+            console.log(`✅ Excel 模板加載完成: ${sheetName} (${logicTree.size} 個問題)`);
             return logicTree;
             
         } catch (error) {
-            console.log(`❌ 加載工作表 "${sheetName}" 失敗:`, error.message);
+            console.error('❌ 加載 Excel 模板失敗:', error.message);
             throw error;
         }
     }
 
-    // 獲取可用工作表列表
-    getAvailableSheets() {
-        return this.availableSheets;
-    }
-
-    // 開始新的填表流程（支援群組鎖定）
-    async startForm(userId, sheetName, chatId = null) {
+    /**
+     * 獲取下一個問題 - Phase 7 互動反饋
+     * @param {Object} context - 標準化上下文
+     * @param {string} userInput - 用戶輸入
+     * @returns {Promise<Object>} 問題訊息
+     */
+    async getNextQuestion(context, userInput) {
         try {
-            // 加載指定工作表
-            const logicTree = await this.loadSheet(sheetName);
+            const { userId, originId, pushname, isGroup } = context;
             
-            // 初始化用戶會話
-            this.userSessions.set(userId, {
-                sheetName: sheetName,
-                logicTree: logicTree,
-                answers: new Map(),
-                currentQuestion: '1', // 從第一個問題開始
-                startTime: new Date(),
-                targetCells: new Map(), // 目標單元格映射
-                chatId: chatId // 群組 ID（如果有的話）
-            });
-
-            // 如果是在群組中啟動，設置群組鎖定
-            if (chatId) {
-                this.groupSessions.set(chatId, userId);
-                console.log(`🚀 群組 ${chatId} 鎖定用戶 ${userId} 開始填表流程: ${sheetName}`);
-            } else {
-                console.log(`🚀 用戶 ${userId} 開始填表流程: ${sheetName}`);
+            // 邏輯攔截：若該群組已有會話，非發起人的訊息一律無視
+            if (isGroup && this.isGroupSessionLocked(originId, userId)) {
+                return { type: 'ignored', message: '⛔ 此群組會話已鎖定給其他用戶' };
             }
             
-            // 獲取第一個問題
-            return await this.getNextQuestion(userId, null, null);
-            
-        } catch (error) {
-            console.log(`❌ 啟動填表流程失敗:`, error.message);
-            throw error;
-        }
-    }
-
-    // 檢查群組會話鎖定
-    isGroupSessionLocked(chatId, userId) {
-        const lockedUserId = this.groupSessions.get(chatId);
-        if (lockedUserId && lockedUserId !== userId) {
-            console.log(`⛔ 群組 ${chatId} 已鎖定給用戶 ${lockedUserId}，忽略用戶 ${userId} 的訊息`);
-            return true;
-        }
-        return false;
-    }
-
-    // 檢查用戶是否在會話中
-    isUserInSession(userId, chatId = null) {
-        // 檢查用戶會話
-        if (this.userSessions.has(userId)) {
-            const userSession = this.userSessions.get(userId);
-            
-            // 如果在群組中，檢查群組鎖定
-            if (chatId && userSession.chatId !== chatId) {
-                return false;
-            }
-            
-            return true;
-        }
-        return false;
-    }
-
-    // 獲取下一個問題（支援群組回覆）
-    async getNextQuestion(userId, currentID, userInput, pushname = null) {
-        try {
-            const userSession = this.userSessions.get(userId);
-            if (!userSession) {
+            // 檢查會話是否存在
+            if (!this.userSessions.has(userId)) {
                 throw new Error(`找不到用戶會話: ${userId}`);
             }
-
-            const { logicTree, sheetName, chatId } = userSession;
+            
+            const session = this.userSessions.get(userId);
+            const { logicTree, sheetName, currentQuestion } = session;
             
             // 處理用戶輸入
-            if (userInput && currentID) {
-                const currentQuestion = logicTree.get(currentID.toString());
-                if (!currentQuestion) {
-                    throw new Error(`在工作表 "${sheetName}" 中找不到問題 ID: ${currentID}`);
-                }
-
-                // 保存用戶回答
-                userSession.answers.set(currentID, {
-                    question: currentQuestion.Question,
-                    answer: userInput,
-                    targetCell: currentQuestion.TargetCell,
-                    timestamp: new Date()
-                });
-
-                // 保存目標單元格映射
-                if (currentQuestion.TargetCell) {
-                    userSession.targetCells.set(currentQuestion.TargetCell, userInput);
-                }
-
-                // 決定下一個問題 ID（修復死循環邏輯）
-                let nextID = null;
-                
-                // 處理特殊指令
-                if (userInput.toLowerCase() === '!cancel' || userInput.toLowerCase() === '取消') {
-                    // 取消流程
-                    this.userSessions.delete(userId);
-                    if (chatId) {
-                        this.groupSessions.delete(chatId);
-                    }
-                    return {
-                        type: 'cancelled',
-                        message: '❌ 填表流程已取消'
-                    };
-                } else if (userInput.toLowerCase() === 'ok' || userInput.toLowerCase() === '確認') {
-                    nextID = currentQuestion.NextID_OK;
-                } else if (userInput.toLowerCase() === 'no' || userInput.toLowerCase() === '跳過') {
-                    nextID = currentQuestion.NextID_No;
-                } else if (currentQuestion.InputType === 'Option' && currentQuestion.Options) {
-                    // 檢查是否為有效選項
-                    const normalizedInput = userInput.trim().toLowerCase();
-                    const isValidOption = currentQuestion.Options.some(option => 
-                        option.toLowerCase() === normalizedInput
-                    );
-                    
-                    if (isValidOption) {
-                        nextID = currentQuestion.NextID_OK;
-                    } else {
-                        nextID = currentQuestion.NextID_No;
-                    }
-                } else {
-                    // 對於 Text 和 Photo 類型，直接跳轉到 OK
-                    nextID = currentQuestion.NextID_OK;
-                }
-
-                userSession.currentQuestion = nextID ? nextID.toString() : null;
+            if (userInput && currentQuestion) {
+                await this.processUserInput(session, currentQuestion, userInput, context);
             }
-
+            
             // 獲取當前問題
-            const currentQuestionID = userSession.currentQuestion;
-            if (!currentQuestionID) {
+            const nextQuestionId = session.currentQuestion;
+            if (!nextQuestionId || nextQuestionId === '!end') {
                 // 會話結束
-                const result = await this.generateResultExcel(userId);
-                this.userSessions.delete(userId);
-                if (chatId) {
-                    this.groupSessions.delete(chatId);
-                }
-                return {
-                    type: 'completed',
-                    message: `表格填寫完成！感謝您完成「${sheetName}」填表。`,
-                    resultFile: result.filePath,
-                    answers: Array.from(userSession.answers.entries()),
-                    targetCells: Array.from(userSession.targetCells.entries())
-                };
+                return await this.completeSession(session, context);
             }
-
-            const question = logicTree.get(currentQuestionID);
+            
+            const question = logicTree.get(nextQuestionId);
             if (!question) {
-                throw new Error(`在工作表 "${sheetName}" 中找不到問題 ID: ${currentQuestionID}`);
-            }
-
-            // 構建問題訊息（支援群組 @ 回覆）
-            let message = `📋 ${sheetName} - 問題 ${question.ID}: ${question.Question}`;
-            
-            if (question.InputType === 'Option' && question.Options && question.Options.length > 0) {
-                message += `\n💡 選項: ${question.Options.join(', ')}`;
+                throw new Error(`找不到問題 ID: ${nextQuestionId}`);
             }
             
-            if (question.InputType === 'Photo') {
-                message += `\n📷 請上傳照片`;
-            }
-
-            // 如果是群組會話，添加 @ 回覆
-            if (chatId && pushname) {
-                message = `@${pushname} ${message}`;
-            }
-
-            // 如果是回答後的確認回覆
+            // 構建問題訊息
+            let message = this.buildQuestionMessage(question, sheetName);
+            
+            // 互動反饋：每次收到回答回覆確認
+            let confirmation = null;
             if (userInput && pushname) {
-                const confirmationMessage = `@${pushname} 收到: ${userInput}`;
+                confirmation = `收到: ${userInput}`;
+            }
+            
+            // 更新群組會話狀態
+            if (isGroup) {
+                const groupSession = this.groupSessions.get(originId);
+                if (groupSession) {
+                    groupSession.currentStep = `question_${nextQuestionId}`;
+                    groupSession.data.set('currentQuestion', nextQuestionId);
+                }
+            }
+            
+            // 如果是群組環境且需要私訊互動，返回特殊結果
+            if (isGroup && !userInput) {
                 return {
-                    type: 'question_with_confirmation',
-                    sheetName: sheetName,
-                    questionId: question.ID,
+                    success: true,
                     message: message,
-                    confirmation: confirmationMessage,
-                    inputType: question.InputType,
-                    options: question.Options || [],
-                    targetCell: question.TargetCell
+                    requiresPrivateMessage: true,
+                    confirmation: confirmation
                 };
             }
-
+            
             return {
-                type: 'question',
+                type: userInput ? 'question_with_confirmation' : 'question',
                 sheetName: sheetName,
-                questionId: question.ID,
+                questionId: question.QuestionID,
                 message: message,
-                inputType: question.InputType,
-                options: question.Options || [],
+                confirmation: confirmation,
+                validationType: question.ValidationType,
                 targetCell: question.TargetCell
             };
             
         } catch (error) {
-            console.log('❌ 獲取下一個問題失敗:', error.message);
+            console.error('❌ 獲取問題失敗:', error.message);
             throw error;
         }
     }
 
-    // 生成結果 Excel 檔案
-    async generateResultExcel(userId) {
+    /**
+     * 處理用戶輸入 - 使用 group-pm-group 流程
+     * @param {Object} session - 用戶會話
+     * @param {string} questionId - 問題 ID
+     * @param {string} userInput - 用戶輸入
+     * @param {Object} context - 上下文
+     * @returns {Promise<Object>} 處理結果
+     */
+    async processUserInput(session, questionId, userInput, context) {
         try {
-            const userSession = this.userSessions.get(userId);
-            if (!userSession) {
-                throw new Error(`找不到用戶會話: ${userId}`);
+            const { logicTree, answers, targetCells, originId, isGroup, pushname } = session;
+            
+            const question = logicTree.get(questionId);
+            if (!question) {
+                throw new Error(`找不到問題: ${questionId}`);
             }
-
-            const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet(userSession.sheetName + '結果');
-
-            // 添加標題行
-            worksheet.addRow(['問題', '回答', '目標單元格', '時間']);
-
-            // 添加數據行
-            userSession.answers.forEach((answer, questionId) => {
-                worksheet.addRow([
-                    answer.question,
-                    answer.answer,
-                    answer.targetCell,
-                    answer.timestamp.toLocaleString()
-                ]);
+            
+            // 中斷邏輯：偵測到 !cancel 必須立刻清理 Map 緩存
+            if (userInput.toLowerCase() === '!cancel') {
+                this.cancelSession(session);
+                return {
+                    success: true,
+                    message: '❌ 填表流程已取消',
+                    requiresGroupReport: isGroup,
+                    groupReportMessage: `❌ ${pushname} 的填表流程已取消`
+                };
+            }
+            
+            // 保存用戶回答
+            answers.set(questionId, {
+                question: question.QuestionText,
+                answer: userInput,
+                targetCell: question.TargetCell,
+                timestamp: new Date()
             });
-
-            // 確保輸出目錄存在
-            const outputDir = PathManager.DATA + '/excel_results';
-            if (!fs.existsSync(outputDir)) {
-                fs.mkdirSync(outputDir, { recursive: true });
+            
+            // 保存目標單元格
+            if (question.TargetCell) {
+                targetCells.set(question.TargetCell, userInput);
             }
+            
+            // 設置下一個問題
+            session.currentQuestion = question.NextID || '!end';
+            
+            // 更新群組會話數據
+            if (isGroup) {
+                const groupSession = this.groupSessions.get(originId);
+                if (groupSession) {
+                    groupSession.data.set(`answer_${questionId}`, userInput);
+                }
+            }
+            
+            // 如果是群組環境，返回需要私訊互動的結果
+            if (isGroup) {
+                const nextQuestion = await this.getNextQuestion(context, userInput);
+                return {
+                    success: true,
+                    message: nextQuestion.message,
+                    requiresPrivateMessage: true,
+                    confirmation: `收到: ${userInput}`
+                };
+            }
+            
+            return await this.getNextQuestion(context, userInput);
+            
+        } catch (error) {
+            console.error('❌ 處理用戶輸入失敗:', error.message);
+            throw error;
+        }
+    }
 
-            // 生成檔案名
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-            const fileName = `${userSession.sheetName}_${userId.replace('@c.us', '')}_${timestamp}.xlsx`;
-            const filePath = path.join(outputDir, fileName);
+    /**
+     * 構建問題訊息
+     * @param {Object} question - 問題數據
+     * @param {string} sheetName - 工作表名稱
+     * @returns {string} 格式化訊息
+     */
+    buildQuestionMessage(question, sheetName) {
+        let message = `📋 ${sheetName} - ${question.QuestionID}: ${question.QuestionText}`;
+        
+        if (question.ValidationType === 'Option' && question.Options) {
+            message += `\n💡 選項: ${question.Options}`;
+        } else if (question.ValidationType === 'Image') {
+            message += `\n📷 請上傳照片`;
+        }
+        
+        return message;
+    }
 
-            // 保存檔案
+    /**
+     * 完成會話並生成結果 - 使用 group-pm-group 流程
+     * @param {Object} session - 用戶會話
+     * @param {Object} context - 上下文
+     * @returns {Promise<Object>} 完成訊息
+     */
+    async completeSession(session, context) {
+        const { userId, sheetName, answers, targetCells, originId, isGroup, pushname } = session;
+        
+        // 生成結果 Excel - 存入 data/excel_results/
+        const resultFile = await this.generateResultExcel(session, context);
+        
+        // 清理會話 - 必須立刻清理 Map 緩存
+        this.userSessions.delete(userId);
+        if (isGroup) {
+            this.groupSessions.delete(originId);
+        }
+        
+        console.log(`✅ ${isGroup ? '群組' : '私訊'}會話完成: ${userId} -> ${sheetName}`);
+        
+        // 如果是群組環境，返回需要群組回報的結果
+        if (isGroup) {
+            return {
+                type: 'completed',
+                message: `✅ 表格填寫完成！感謝您完成「${sheetName}」填表。`,
+                resultFile: resultFile,
+                answers: Array.from(answers.entries()),
+                targetCells: Array.from(targetCells.entries()),
+                requiresGroupReport: true,
+                groupReportMessage: `✅ ${pushname} 的 Excel 填表已完成！結果文件: ${path.basename(resultFile)}`
+            };
+        }
+        
+        return {
+            type: 'completed',
+            message: `✅ 表格填寫完成！感謝您完成「${sheetName}」填表。`,
+            resultFile: resultFile,
+            answers: Array.from(answers.entries()),
+            targetCells: Array.from(targetCells.entries())
+        };
+    }
+
+    /**
+     * 取消會話 - 中斷邏輯實現
+     * @param {Object} session - 用戶會話
+     */
+    cancelSession(session) {
+        const { userId, originId, isGroup } = session;
+        
+        // 立刻清理 Map 緩存
+        this.userSessions.delete(userId);
+        if (isGroup) {
+            this.groupSessions.delete(originId);
+        }
+        
+        console.log(`❌ ${isGroup ? '群組' : '私訊'}會話取消: ${userId}`);
+    }
+
+    /**
+     * 生成結果 Excel 文件 - 毫秒級時間戳命名
+     * @param {Object} session - 用戶會話
+     * @param {Object} context - 上下文
+     * @returns {Promise<string>} 文件路徑
+     */
+    async generateResultExcel(session, context) {
+        try {
+            const { sheetName, targetCells, pushname } = session;
+            const timestamp = Date.now();
+            const fileName = `${sheetName}_${pushname || 'user'}_${timestamp}.xlsx`;
+            const filePath = this.resultsDir + fileName;
+            
+            // 創建新的工作簿
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet(sheetName);
+            
+            // 寫入標題行
+            worksheet.addRow(['項目', '內容', '填寫時間']);
+            
+            // 寫入數據
+            targetCells.forEach((value, cell) => {
+                worksheet.addRow([cell, value, new Date().toLocaleString()]);
+            });
+            
+            // 保存文件
             await workbook.xlsx.writeFile(filePath);
             
-            console.log(`✅ 結果 Excel 檔案已生成: ${filePath}`);
-            
-            return {
-                filePath: filePath,
-                answers: Array.from(userSession.answers.entries()),
-                targetCells: Array.from(userSession.targetCells.entries())
-            };
+            console.log(`💾 結果文件已保存: ${filePath}`);
+            return filePath;
             
         } catch (error) {
-            console.log('❌ 生成結果 Excel 失敗:', error.message);
+            console.error('❌ 生成結果 Excel 失敗:', error.message);
             throw error;
         }
     }
 
-    // 獲取用戶會話狀態
-    getUserSession(userId) {
-        return this.userSessions.get(userId);
-    }
-
-    // 重置用戶會話
-    resetUserSession(userId) {
-        this.userSessions.delete(userId);
-        console.log(`🔄 已重置用戶 ${userId} 的會話`);
-    }
-
-    // 檢查工作表是否存在
-    async checkSheetExists(sheetName) {
+    /**
+     * 創建默認 Excel 模板 - 自癒功能
+     */
+    async createDefaultTemplate() {
         try {
-            if (!this.workbook) {
-                await this.loadWorkbook();
-            }
+            console.log('🔄 創建默認 Excel 模板...');
             
-            const worksheet = this.workbook.getWorksheet(sheetName);
-            return !!worksheet;
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('trial');
+            
+            // 添加標題行
+            worksheet.addRow([
+                'QuestionID', 'QuestionText', 'ValidationType', 'NextID', 'TargetCell', 'Options'
+            ]);
+            
+            // 添加示例數據
+            worksheet.addRow(['Q1', '請輸入您的姓名：', 'Text', 'Q2', 'A2', '']);
+            worksheet.addRow(['Q2', '請輸入您的電話號碼：', 'Number', 'Q3', 'B2', '']);
+            worksheet.addRow(['Q3', '請輸入出生日期：', 'Date', 'Q4', 'C2', '']);
+            worksheet.addRow(['Q4', '請上傳身份證照片：', 'Image', '!end', 'D2', '']);
+            
+            // 保存模板
+            await workbook.xlsx.writeFile(this.mapFile);
+            
+            console.log('✅ 默認 Excel 模板創建完成');
+            
         } catch (error) {
-            return false;
+            console.error('❌ 創建默認模板失敗:', error.message);
+            throw error;
         }
+    }
+
+    /**
+     * 獲取可用工作表列表
+     * @returns {Array<string>} 工作表名稱列表
+     */
+    getAvailableSheets() {
+        return this.availableSheets;
     }
 }
 

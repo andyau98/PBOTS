@@ -3,9 +3,13 @@ const path = require('path');
 const os = require('os');
 
 class HealthMonitor {
-    constructor(config, client) {
+    constructor(config, client, pathManager = null) {
         this.config = config;
         this.client = client;
+        
+        // Phase 7 標準化依賴注入
+        this.pathManager = pathManager || require('../configs/path_manager');
+        
         this.startTime = new Date();
         this.messageCount = 0;
         this.mediaCount = 0;

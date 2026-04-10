@@ -3,13 +3,16 @@ const path = require('path');
 const PathManager = require('../configs/path_manager');
 
 class MediaDownloader {
-    constructor(config) {
+    constructor(config, pathManager = null) {
         this.config = config;
         this.mediaConfig = config.media_download || {};
         this.enabled = this.mediaConfig.enabled !== false;
         this.autoDownload = this.mediaConfig.auto_download !== false;
-        this.imagePath = this.mediaConfig.image_path || PathManager.IMAGES;
-        this.pdfPath = this.mediaConfig.pdf_path || PathManager.PDFS;
+        
+        // Phase 7 標準化依賴注入
+        this.pathManager = pathManager || require('../configs/path_manager');
+        this.imagePath = this.mediaConfig.image_path || this.pathManager.IMAGES;
+        this.pdfPath = this.mediaConfig.pdf_path || this.pathManager.PDFS;
         this.namingConvention = this.mediaConfig.naming_convention || '[YYYYMMDD]_[SenderName]_[OriginalFileName]';
         
         // 文件鎖管理
@@ -21,19 +24,17 @@ class MediaDownloader {
 
     // 確保目錄存在
     ensureDirectories() {
-        if (!fs.existsSync(this.imagePath)) {
-            fs.mkdirSync(this.imagePath, { recursive: true });
-        }
-        if (!fs.existsSync(this.pdfPath)) {
-            fs.mkdirSync(this.pdfPath, { recursive: true });
-        }
+        this.pathManager.ensureDirectoryExists(this.imagePath);
+        this.pathManager.ensureDirectoryExists(this.pdfPath);
     }
 
     // 生成文件名（修復覆蓋Bug）
     async generateFileName(message, senderName, originalFileName = '') {
         const now = new Date();
-        // 精確到毫秒的時間戳
-        const timestamp = now.toISOString()
+        // 使用香港時間 (UTC+8)
+        const hongKongTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+        // 精確到毫秒的時間戳（香港時間）
+        const timestamp = hongKongTime.toISOString()
             .replace(/[-:]/g, '')
             .replace('T', '_')
             .replace(/\./g, '_')
@@ -56,34 +57,34 @@ class MediaDownloader {
             fileExtension = path.extname(originalFileName) || '.pdf';
         }
         
-        // 確定保存路徑
-        let savePath;
-        if (message.type === 'image') {
-            savePath = this.imagePath;
-        } else if (message.type === 'document') {
-            savePath = this.pdfPath;
-        } else {
-            savePath = this.imagePath; // 默認路徑
-        }
-        
         // 文件存在檢查和後綴添加
         let fileName = baseFileName + fileExtension;
-        let finalFilePath = path.join(savePath, fileName);
         let counter = 1;
         
-        while (await this.fileExists(finalFilePath)) {
+        // 使用 PathManager 提供的路徑進行文件存在檢查
+        while (await this.fileExists(fileName, message.type)) {
             fileName = `${baseFileName}_copy${counter}${fileExtension}`;
-            finalFilePath = path.join(savePath, fileName);
             counter++;
         }
         
         return fileName;
     }
     
-    // 檢查文件是否存在
-    async fileExists(filePath) {
+    // 檢查文件是否存在（基於 PathManager 路徑）
+    async fileExists(fileName, messageType = 'image') {
         try {
-            await fs.promises.access(filePath);
+            // 根據文件類型確定保存路徑
+            let savePath;
+            if (messageType === 'image') {
+                savePath = this.imagePath;
+            } else if (messageType === 'document') {
+                savePath = this.pdfPath;
+            } else {
+                savePath = this.imagePath; // 默認路徑
+            }
+            
+            const fullPath = path.join(savePath, fileName);
+            await fs.promises.access(fullPath);
             return true;
         } catch {
             return false;
@@ -129,11 +130,11 @@ class MediaDownloader {
             
             if (message.type === 'image') {
                 savePath = this.imagePath;
-                fileName = this.generateFileName(message, senderName);
+                fileName = await this.generateFileName(message, senderName);
             } else if (message.type === 'document') {
                 savePath = this.pdfPath;
                 const originalFileName = message.mediaFilename || '';
-                fileName = this.generateFileName(message, senderName, originalFileName);
+                fileName = await this.generateFileName(message, senderName, originalFileName);
             } else {
                 console.log(`❓ 不支持的媒體類型: ${message.type}`);
                 return null;

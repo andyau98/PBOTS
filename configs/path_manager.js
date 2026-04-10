@@ -13,11 +13,18 @@ const PathManager = {
     TOOLS: path.join(ROOT, 'tools'),
     CONFIGS: path.join(ROOT, 'configs'),
     BACKUPS: path.join(ROOT, 'backups'),
+    DOCS: path.join(ROOT, 'docs'),
     MARKDOWN: path.join(ROOT, 'MarkDown'),
     LOGS: path.join(ROOT, 'logs'),
     SRC: path.join(ROOT, 'src'),
     TEMPLATES: path.join(ROOT, 'Templates'),
     EXPORTS: path.join(ROOT, 'Exports'),
+    
+    // 文檔子資料夾
+    ARCHITECTURE: path.join(ROOT, 'docs', 'architecture'),
+    PHASES: path.join(ROOT, 'docs', 'phases'),
+    GUIDES: path.join(ROOT, 'docs', 'guides'),
+    SKILLS_DOCS: path.join(ROOT, 'docs', 'skills'),
     
     // 資料檔案
     WHITELIST: path.join(ROOT, 'data', 'whitelist.json'),
@@ -50,6 +57,7 @@ const PathManager = {
             PathManager.TOOLS,
             PathManager.CONFIGS,
             PathManager.BACKUPS,
+            PathManager.DOCS,
             PathManager.MARKDOWN,
             PathManager.LOGS,
             PathManager.SRC,
@@ -57,7 +65,11 @@ const PathManager = {
             PathManager.EXPORTS,
             PathManager.CHATS,
             PathManager.IMAGES,
-            PathManager.PDFS
+            PathManager.PDFS,
+            PathManager.ARCHITECTURE,
+            PathManager.PHASES,
+            PathManager.GUIDES,
+            PathManager.SKILLS_DOCS
         ];
         
         directories.forEach(dir => {

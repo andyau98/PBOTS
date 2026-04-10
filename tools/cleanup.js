@@ -3,11 +3,14 @@ const path = require('path');
 const PathManager = require('../configs/path_manager');
 
 class CleanupManager {
-    constructor(config) {
+    constructor(config, pathManager = null) {
         this.config = config;
-        this.logsPath = config.paths?.logs || PathManager.LOGS;
-        this.dataPath = config.paths?.data || PathManager.DATA;
-        this.backupsPath = config.paths?.backups || PathManager.BACKUPS;
+        
+        // Phase 7 標準化依賴注入
+        this.pathManager = pathManager || require('../configs/path_manager');
+        this.logsPath = config.paths?.logs || this.pathManager.LOGS;
+        this.dataPath = config.paths?.data || this.pathManager.DATA;
+        this.backupsPath = config.paths?.backups || this.pathManager.BACKUPS;
         this.retentionDays = 30; // 保留30天
     }
 

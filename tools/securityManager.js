@@ -3,23 +3,54 @@ const path = require('path');
 const PathManager = require('../configs/path_manager');
 
 class SecurityManager {
-    constructor(config) {
+    constructor(config, pathManager = null, contextStandardizer = null) {
         this.config = config;
         this.securityConfig = config.security || {};
         this.adminNumbers = this.securityConfig.admin_numbers || [];
         this.authorizedGroups = this.securityConfig.authorized_groups || [];
         this.whitelistEnabled = this.securityConfig.whitelist_enabled !== false;
         this.adminPassword = this.securityConfig.admin_password || "288365";
-        this.whitelistFile = this.securityConfig.whitelist_file || PathManager.WHITELIST;
+        
+        // Phase 7 標準化依賴注入
+        this.pathManager = pathManager || require('../configs/path_manager');
+        this.contextStandardizer = contextStandardizer;
+        this.whitelistFile = this.securityConfig.whitelist_file || this.pathManager.WHITELIST;
         
         // 初始化白名單檔案
         this.initializeWhitelistFile();
     }
 
+    /**
+     * 標準 execute 方法 - PBOTS 架構規範
+     * SecurityManager 作為權限檢查核心，必須全面開放，不進行權限檢查
+     * 避免死循環：其他工具依賴 SecurityManager 進行權限檢查
+     * @param {Object} context - 標準化上下文
+     * @param {string} command - 指令名稱
+     * @returns {Promise<Object>} 執行結果
+     */
+    async execute(context, command) {
+        try {
+            // SecurityManager 全面開放，不進行權限檢查
+            // 避免死循環：其他工具依賴此工具進行權限檢查
+            
+            // 跨頻道處理 - 記錄交互
+            if (this.contextStandardizer) {
+                await this.contextStandardizer.recordInteraction(context, command);
+            }
+            
+            // 執行安全邏輯
+            return await this.handleSecurityCommand(context, command);
+            
+        } catch (error) {
+            console.error('❌ SecurityManager execute 錯誤:', error.message);
+            throw error;
+        }
+    }
+
     // 初始化白名單檔案
     initializeWhitelistFile() {
-        const dir = PathManager.DATA;
-        PathManager.ensureDirectoryExists(dir);
+        const dir = this.pathManager.DATA;
+        this.pathManager.ensureDirectoryExists(dir);
         
         if (!fs.existsSync(this.whitelistFile)) {
             fs.writeFileSync(this.whitelistFile, JSON.stringify({
@@ -81,6 +112,11 @@ class SecurityManager {
     isInWhitelist(userId) {
         const whitelist = this.loadWhitelist();
         return whitelist.admins.includes(userId);
+    }
+
+    // 檢查是否在白名單中（標準化方法名）
+    isWhiteListed(userId) {
+        return this.isInWhitelist(userId);
     }
 
     // 檢查用戶權限
@@ -170,6 +206,99 @@ class SecurityManager {
                 success: false,
                 message: `❌ 認證過程發生錯誤: ${error.message}`
             };
+        }
+    }
+
+    /**
+     * 處理安全命令 - 標準化實現
+     * @param {Object} context - 標準化上下文
+     * @param {string} command - 指令名稱
+     * @returns {Promise<Object>} 處理結果
+     */
+    async handleSecurityCommand(context, command) {
+        const { userId, pushname, isGroup, groupName } = context;
+        
+        try {
+            switch (command) {
+                case 'whitelist':
+                    return await this.handleWhitelistCommand(context);
+                case 'auth':
+                    return await this.handleAuthCommand(context);
+                default:
+                    throw new Error(`未知的安全命令: ${command}`);
+            }
+        } catch (error) {
+            console.error(`❌ 安全命令處理失敗: ${error.message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * 處理白名單命令
+     * @param {Object} context - 標準化上下文
+     * @returns {Promise<Object>} 處理結果
+     */
+    async handleWhitelistCommand(context) {
+        const { userId, pushname, isGroup, groupName } = context;
+        
+        try {
+            // 檢查是否已在白名單中
+            if (this.isWhiteListed(userId)) {
+                return {
+                    success: true,
+                    message: `✅ ${pushname} 您已經是管理員，無需再次認證。`,
+                    alreadyWhitelisted: true
+                };
+            }
+            
+            // 觸發跨頻道私訊驗證流程
+            if (this.contextStandardizer) {
+                await this.contextStandardizer.recordInteraction(context, 'whitelist');
+            }
+            
+            return {
+                success: true,
+                message: `🔐 請檢查短訊以完成管理員認證。`,
+                requiresPrivateMessage: true
+            };
+            
+        } catch (error) {
+            console.error('❌ 白名單命令處理失敗:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 處理認證命令
+     * @param {Object} context - 標準化上下文
+     * @returns {Promise<Object>} 處理結果
+     */
+    async handleAuthCommand(context) {
+        const { userId, pushname, messageBody, isGroup } = context;
+        
+        try {
+            // 提取密碼（假設格式為 !auth [密碼]）
+            const password = messageBody.replace('!auth', '').trim();
+            
+            if (!password) {
+                return {
+                    success: false,
+                    message: '❌ 請提供密碼，格式: !auth [密碼]'
+                };
+            }
+            
+            // 使用現有的密碼驗證邏輯
+            const result = await this.handlePasswordVerification(context.message, password, userId, isGroup, context.groupName);
+            
+            return {
+                success: result.success,
+                message: result.message,
+                groupNotification: result.groupNotification
+            };
+            
+        } catch (error) {
+            console.error('❌ 認證命令處理失敗:', error.message);
+            throw error;
         }
     }
 

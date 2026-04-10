@@ -3,13 +3,16 @@ const path = require('path');
 const PathManager = require('../configs/path_manager');
 
 class MessageLogger {
-    constructor(config) {
+    constructor(config, pathManager = null) {
         this.config = config;
-        this.savePath = config.message_logging?.save_path || PathManager.CHATS;
+        
+        // Phase 7 標準化依賴注入
+        this.pathManager = pathManager || require('../configs/path_manager');
+        this.savePath = config.message_logging?.save_path || this.pathManager.CHATS;
         this.enabled = config.message_logging?.enabled !== false;
         
         // 確保保存目錄存在
-        PathManager.ensureDirectoryExists(this.savePath);
+        this.pathManager.ensureDirectoryExists(this.savePath);
     }
 
     // 獲取訊息類型
@@ -30,15 +33,17 @@ class MessageLogger {
 
         try {
             const now = new Date();
-            const dateString = now.toISOString().split('T')[0];
+            // 使用香港時間 (UTC+8)
+            const hongKongTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+            const dateString = hongKongTime.toISOString().split('T')[0];
             const filename = `${dateString}.json`;
             const filePath = path.join(this.savePath, filename);
 
             const isGroup = message.from.includes('@g.us');
             
-            // 格式化訊息數據
+            // 格式化訊息數據（使用香港時間）
             const messageData = {
-                timestamp: now.toISOString(),
+                timestamp: hongKongTime.toISOString(),
                 isGroup: isGroup,
                 sender: message.from,
                 senderName: senderInfo,
@@ -74,7 +79,9 @@ class MessageLogger {
     getTodayStats() {
         try {
             const now = new Date();
-            const dateString = now.toISOString().split('T')[0];
+            // 使用香港時間 (UTC+8)
+            const hongKongTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+            const dateString = hongKongTime.toISOString().split('T')[0];
             const filename = `${dateString}.json`;
             const filePath = path.join(this.savePath, filename);
 

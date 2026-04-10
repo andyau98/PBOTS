@@ -48,6 +48,9 @@ jspm_packages/
 .rts2_cache_umd/
 
 # Optional REPL history
+
+# Backup directories
+backups/
 .node_repl_history
 
 # Output of 'npm pack'

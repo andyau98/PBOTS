@@ -15,6 +15,11 @@ const HealthMonitor = require(PathManager.TOOLS + '/healthMonitor');
 const LogicEngine = require(PathManager.TOOLS + '/logicEngine');
 const CommandHandler = require(PathManager.TOOLS + '/commandHandler');
 
+// 載入新創建的獨立工具
+const ProfileHandler = require(PathManager.TOOLS + '/profileHandler');
+const ExcelHandler = require(PathManager.TOOLS + '/excelHandler');
+const PrivateMessageHandler = require(PathManager.TOOLS + '/privateMessageHandler');
+
 console.log('🚀 啟動最終大一統 WhatsApp Bot (完整功能版本)...');
 
 // 載入配置
@@ -45,14 +50,25 @@ try {
     };
 }
 
-// 初始化所有工具模組
-const securityManager = new SecurityManager(config);
+// 初始化所有工具模組 - Phase 7 標準化依賴注入
+const securityManager = new SecurityManager(config, PathManager);
 const contextStandardizer = new ContextStandardizer();
-const messageLogger = new MessageLogger(config);
-const mediaDownloader = new MediaDownloader(config);
-const imageToPdf = new ImageToPdf(config);
-const cleanupManager = new CleanupManager(config);
-const logicEngine = new LogicEngine(config, securityManager);
+const messageLogger = new MessageLogger(config, PathManager);
+const mediaDownloader = new MediaDownloader(config, PathManager);
+const imageToPdf = new ImageToPdf(config, PathManager);
+const cleanupManager = new CleanupManager(config, PathManager);
+
+// Phase 7 標準化依賴注入 - LogicEngine
+const logicEngine = new LogicEngine({
+    pathManager: PathManager,
+    securityManager: securityManager,
+    contextStandardizer: contextStandardizer
+});
+
+// 初始化新創建的獨立工具 - Phase 7 標準化依賴注入
+const profileHandler = new ProfileHandler(config, securityManager, PathManager, contextStandardizer);
+const excelHandler = new ExcelHandler(config, logicEngine, PathManager, securityManager, contextStandardizer);
+const privateMessageHandler = new PrivateMessageHandler(config, securityManager, contextStandardizer, PathManager);
 
 // HealthMonitor 和 CommandHandler 將在 client.on('ready') 中初始化
 let healthMonitor = null;
@@ -100,11 +116,11 @@ client.on('ready', async () => {
     console.log('🔧 模組化架構已啟用，所有工具位於 /tools 資料夾');
     
     // 初始化 HealthMonitor（需要 client 實例）
-    healthMonitor = new HealthMonitor(config, client);
+    healthMonitor = new HealthMonitor(config, client, PathManager);
     await healthMonitor.initialize();
     
     // 初始化 CommandHandler（需要 healthMonitor 實例）
-    commandHandler = new CommandHandler(config, securityManager, healthMonitor);
+    commandHandler = new CommandHandler(config, securityManager, healthMonitor, PathManager, contextStandardizer);
     
     // 初始化 LogicEngine
     try {
@@ -123,6 +139,15 @@ client.on('ready', async () => {
 // 訊息接收事件 - 使用階段6標準化 Context 架構
 client.on('message', async (message) => {
     try {
+        // 🔧 防止無限循環：檢查是否為 Bot 自己發送的訊息
+        const contact = await message.getContact();
+        const isFromBot = contact.isMe;
+        
+        if (isFromBot) {
+            // 忽略 Bot 自己發送的訊息，避免無限循環
+            return;
+        }
+        
         // 第一步：標準化 Context 封裝（階段6核心功能）
         const context = await contextStandardizer.standardizeContext(message);
         
@@ -158,13 +183,19 @@ client.on('message', async (message) => {
             }
         }
         
-        // 處理命令
+        // 處理命令（以 ! 開頭）
         if (context.messageBody.startsWith('!')) {
             // 先檢查是否為 Excel 填表流程指令
             const excelResult = await handleExcelFormCommand(client, context, logicEngine);
             if (!excelResult.isExcelCommand) {
                 // 如果不是 Excel 指令，則使用常規命令處理
                 await handleCommand(client, context, contextStandardizer);
+            }
+        } else {
+            // 🔧 處理普通私訊（非命令）
+            // 只有在私訊中才處理普通訊息，群組中只處理命令
+            if (!context.isGroup) {
+                await handlePrivateMessage(client, context, contextStandardizer);
             }
         }
         
@@ -276,26 +307,99 @@ async function handleCommand(client, context, contextStandardizer) {
             await handleWhitelistCommand(client, context, contextStandardizer);
             break;
             
+        case 'hi':
         case 'memo':
-            await handleMemoCommand(context);
-            break;
-            
         case 'profile':
-            await handleProfileCommand(context);
+        case 'pdf':
+            // 使用 CommandHandler 處理這些命令
+            const commandResult = await commandHandler.handleCommand(context.message, context.messageBody, context.pushname, context.userId);
+            if (commandResult.success) {
+                // 先回覆原始訊息
+                await context.message.reply(commandResult.message);
+                
+                // 如果有私訊需要發送
+                if (commandResult.requiresPrivateMessage && commandResult.privateMessage) {
+                    // 階段6核心：記錄跨頻道交互上下文
+                    if (context.isGroup && context.groupId) {
+                        contextStandardizer.recordInteraction(context, command);
+                    }
+                    
+                    // 發送私訊
+                    try {
+                        if (context.isGroup) {
+                            // 使用安全發送方法
+                            await contextStandardizer.safeSendMessage(
+                                client, 
+                                context.userId, 
+                                commandResult.privateMessage, 
+                                context
+                            );
+                            console.log(`✅ 已成功私訊用戶 ${context.pushname} 發送打招呼訊息`);
+                        } else {
+                            // 如果是私訊，直接回覆
+                            await context.message.reply(commandResult.privateMessage);
+                            console.log(`👋 已在私訊中向用戶 ${context.pushname} 打招呼`);
+                        }
+                    } catch (error) {
+                        console.log(`❌ 發送私訊失敗: ${error.message}`);
+                    }
+                }
+                
+                // 如果有群組回報需要發送
+                if (commandResult.requiresGroupReport && commandResult.groupReportMessage && !context.isGroup) {
+                    try {
+                        // 使用安全發送方法回報到原群組
+                        await contextStandardizer.safeSendMessage(
+                            client, 
+                            context.originId || context.groupId, 
+                            commandResult.groupReportMessage, 
+                            context
+                        );
+                        console.log(`✅ 已成功在群組中回報 ${context.pushname} 的備忘錄結果`);
+                    } catch (error) {
+                        console.log(`❌ 群組回報失敗: ${error.message}`);
+                    }
+                }
+            }
             break;
             
         case 'excel':
-            await handleExcelCommand(context);
+        case 'trial':
+            // 使用 ExcelHandler 處理 Excel 命令（標準化 execute 方法）
+            try {
+                const excelResult = await excelHandler.execute(context, command);
+                if (excelResult.success && excelResult.message) {
+                    await context.message.reply(excelResult.message);
+                    
+                    // 如果有確認訊息，也發送
+                    if (excelResult.confirmation) {
+                        await context.message.reply(excelResult.confirmation);
+                    }
+                    
+                    // 如果有結果文件，提供下載資訊
+                    if (excelResult.resultFile) {
+                        await context.message.reply(`📁 填表結果已保存: ${excelResult.resultFile}`);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ ExcelHandler execute 錯誤:', error.message);
+                await context.message.reply('❌ Excel 功能暫時不可用，請稍後重試');
+            }
             break;
             
         case 'help':
         case 'ping':
         case 'stats':
         case 'version':
-            // 使用 CommandHandler 處理基本命令
-            const result = await commandHandler.handleCommand(context.message, context.messageBody, context.pushname, context.userId);
-            if (result.success) {
-                await context.message.reply(result.message);
+            // 使用 CommandHandler 處理基本命令（標準化 execute 方法）
+            try {
+                const result = await commandHandler.execute(context, command);
+                if (result.success && result.message) {
+                    await context.message.reply(result.message);
+                }
+            } catch (error) {
+                console.error('❌ CommandHandler execute 錯誤:', error.message);
+                await context.message.reply('❌ 命令處理失敗，請稍後重試');
             }
             break;
             
@@ -310,12 +414,13 @@ async function handleCommand(client, context, contextStandardizer) {
 async function handleWhitelistCommand(client, context, contextStandardizer) {
     console.log(`🔓 處理白名單認證請求來自 ${context.pushname}`);
     
-    const whitelistResult = await securityManager.handleWhitelistCommand(context.message, context.messageBody, context.userId);
+    // 使用 SecurityManager 標準化 execute 方法
+    const whitelistResult = await securityManager.execute(context, 'whitelist');
     
     // 先回覆原始訊息
     await context.message.reply(whitelistResult.message);
     
-    if (whitelistResult.requiresPassword) {
+    if (whitelistResult.requiresPrivateMessage) {
         // 階段6核心：記錄跨頻道交互上下文
         if (context.isGroup && context.groupId) {
             contextStandardizer.recordInteraction(context, 'whitelist');
@@ -340,74 +445,39 @@ async function handleWhitelistCommand(client, context, contextStandardizer) {
         } catch (error) {
             console.log(`❌ 發送私訊失敗: ${error.message}`);
         }
-    } else if (whitelistResult.alreadyAdmin) {
+    } else if (whitelistResult.alreadyWhitelisted) {
         console.log(`✅ 用戶 ${context.pushname} 已經是管理員`);
     } else {
         console.log(`✅ 白名單認證完成: ${whitelistResult.success ? '成功' : '失敗'}`);
     }
 }
 
-// 處理 !memo 命令
-async function handleMemoCommand(context) {
+
+
+
+
+// 🔧 註解：message_create 事件用於 Bot 發送訊息時，不應用於處理用戶訊息
+// 私訊處理已在 message 事件中統一處理，避免重複處理和無限循環
+
+/**
+ * 處理普通私訊（非命令）- 只記錄不回復
+ * @param {Object} client - WhatsApp 客戶端
+ * @param {Object} context - 標準化上下文
+ * @param {Object} contextStandardizer - 上下文標準化器
+ */
+async function handlePrivateMessage(client, context, contextStandardizer) {
     try {
-        const memoContent = context.messageBody.replace('!memo', '').trim();
-        if (memoContent) {
-            const memoData = {
-                user: context.pushname,
-                userId: context.userId,
-                content: memoContent,
-                timestamp: new Date().toISOString(),
-                type: 'memo'
-            };
-            
-            // 保存到本地檔案（使用 PathManager）
-            const memoDir = PathManager.DATA + '/memos';
-            PathManager.ensureDirectoryExists(memoDir);
-            
-            const memoFile = `${memoDir}/${context.userId}_${Date.now()}.json`;
-            fs.writeFileSync(memoFile, JSON.stringify(memoData, null, 2));
-            
-            await context.message.reply(`📝 備忘錄已保存！內容: ${memoContent}`);
-            console.log('✅ 已處理 !memo 命令');
-        } else {
-            await context.message.reply('📝 請提供備忘錄內容，格式: !memo [內容]');
-        }
+        console.log(`💬 處理用戶 ${context.pushname} 的普通私訊: "${context.messageBody}"`);
+        console.log(`📝 記錄用戶 ${context.pushname} 的普通私訊，不進行回復`);
+        
+        // 只記錄訊息，不進行任何回復
+        // 訊息記錄功能已在主流程中完成，此處只需記錄日誌
+        
     } catch (error) {
-        console.log('❌ 處理備忘錄命令失敗:', error.message);
-        await context.message.reply('❌ 備忘錄保存失敗，請稍後重試');
+        console.error('❌ 處理普通私訊失敗:', error.message);
+        // 私訊處理錯誤不中斷流程
     }
 }
-
-// 處理 !profile 命令
-async function handleProfileCommand(context) {
-    const profileMessage = `👤 ${context.pushname} 的個人資料\n\n`;
-    profileMessage += `• 用戶ID: ${context.userId.substring(0, 20)}...\n`;
-    profileMessage += `• 註冊時間: ${new Date().toLocaleString()}\n`;
-    profileMessage += `• 白名單狀態: 待驗證\n`;
-    profileMessage += `• 權限等級: 普通用戶`;
-    
-    await context.message.reply(profileMessage);
-    console.log('✅ 已回覆 !profile 命令');
-}
-
-// 處理 !excel 命令
-async function handleExcelCommand(context) {
-    await context.message.reply('📊 Excel 功能開發中，敬請期待！\n💡 未來將支援: 數據匯出、報表生成、自動化處理');
-    console.log('✅ 已回覆 !excel 命令');
-}
-
-// 處理私訊回覆（階段6跨頻道功能）
-client.on('message_create', async (message) => {
-    // 只處理私訊（非群組）
-    if (message.from.includes('@g.us')) return;
-    
-    const context = await contextStandardizer.standardizeContext(message);
-    
-    // 檢查是否是密碼回覆
-    if (!context.messageBody.startsWith('!') && context.messageBody.trim().length > 0) {
-        await handlePrivateMessageReply(client, context, contextStandardizer);
-    }
-});
 
 // 處理私訊回覆（階段6跨頻道核心功能）
 async function handlePrivateMessageReply(client, context, contextStandardizer) {

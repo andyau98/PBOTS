@@ -4,10 +4,13 @@ const PDFDocument = require('pdfkit');
 const PathManager = require('../configs/path_manager');
 
 class ImageToPdf {
-    constructor(config) {
+    constructor(config, pathManager = null) {
         this.config = config;
-        this.imagePath = config.media_download?.image_path || PathManager.IMAGES;
-        this.pdfPath = config.media_download?.pdf_path || PathManager.PDFS;
+        
+        // Phase 7 標準化依賴注入
+        this.pathManager = pathManager || require('../configs/path_manager');
+        this.imagePath = config.media_download?.image_path || this.pathManager.IMAGES;
+        this.pdfPath = config.media_download?.pdf_path || this.pathManager.PDFS;
     }
 
     // 獲取用戶最近上傳的圖片
