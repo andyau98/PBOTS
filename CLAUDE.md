@@ -104,9 +104,22 @@ npm run format:check   # Prettier 檢查
 npm test               # 執行測試 (node --test)
 ```
 
+## 新電腦設定
+
+```bash
+git clone https://github.com/andyau98/Pbots.git
+cd Pbots
+git checkout main
+npm install
+cp .env.example .env
+# 編輯 .env，設定 AUTH_PASSWORD=你的密碼
+# 從舊電腦複製 .wwebjs_auth/ 目錄以保留 WhatsApp 登入（可選）
+npm start
+```
+
 ## 架構總覽
 
-PBOTS 是基於 `whatsapp-web.js` + `LocalAuth` 的 WhatsApp 機器人。
+PBOTS 是基於 `whatsapp-web.js` + `LocalAuth` 的 WhatsApp 機器人，用於幕牆工地管理。
 
 ### 目錄結構
 
@@ -116,72 +129,69 @@ src/
 ├── core/
 │   ├── authManager.js        # 統一權限管理（→ DataStore）
 │   ├── commandRouter.js      # 命令路由器：登記→解析→權限→分發
-│   ├── sessionManager.js     # 通用互動會話管理器（群組/私訊分流）
-│   └── dataStore.js          # 統一資料層（所有持久化數據的唯一入口）
+│   ├── sessionManager.js     # 通用互動會話管理器（群組/私訊分流 + 群組鎖定）
+│   ├── dataStore.js          # 統一資料層（所有持久化數據的唯一入口）
+│   ├── monitorServer.js      # HTTP 監控儀表板（localhost:3456）
+│   ├── logStream.js          # SSE 即時日誌串流
+│   └── scheduler.js          # node-cron 排程（每日 9:00 AM 考勤）
 ├── modules/
 │   └── commands.js           # 所有命令的登記與處理函數
+skills/
+├── workerAttendance.js       # 🕐 工人考勤模組
+└── README.md                 # 技能規劃
 tools/
-├── common/
-│   └── utils.js              # 共用工具函數（formatFileSize, ensureDir, calculateDirSize）
-├── messageLogger.js          # JSONL 訊息日誌（append-only）
-├── mediaDownloader.js        # 自動下載媒體檔案
-├── imageToPdf.js             # 照片收集→PDF 生成（2×2 A4 網格）
-├── cleanup.js                # 舊檔案清理／備份
+├── common/utils.js           # 共用工具函數
+├── messageLogger.js          # JSONL 訊息日誌
+├── mediaDownloader.js        # 自動下載媒體
+├── imageToPdf.js             # 照片→PDF（exceljs, Arial Unicode.ttf）
+├── cleanup.js                # 舊檔案清理
 ├── healthMonitor.js          # 系統健康監控
-├── errorRecovery.js          # 錯誤恢復與重連（指數退避）
+├── errorRecovery.js          # 錯誤恢復（指數退避）
 ├── weatherReporter.js        # 香港天文台天氣（axios）
-├── newsReporter.js           # 地盤意外新聞
-└── realNewsFetcher.js        # Google News RSS 抓取（cheerio 解析）
+├── newsReporter.js           # 地盤意外新聞（cheerio）
+└── realNewsFetcher.js        # Google News RSS
 configs/
-└── settings.json             # 靜態配置（前綴、功能開關、路徑）
+└── settings.json             # 靜態配置
 data/
-├── store/                    # 可變數據（admins.json, blocked.json, groups.json）
+├── store/                    # admins.json, blocked.json, groups.json, foremen.json
 ├── exports/                  # 統一輸出路徑
 ├── chats/                    # 訊息日誌 (JSONL)
 ├── images/                   # 媒體圖片
 └── pdfs/                     # PDF 文件
+Sample/LabourSummary/
+└── HGRH開工人數表.xlsx        # 考勤 Excel 範本
 ```
 
-### 訊息處理流程
+### 完整命令列表
 
-1. `client.on('message')` → 建構 **`context`**：`{ userId, originId, isGroup, pushname, messageBody, groupName, groupId }`
-2. 記錄訊息到 JSONL 日誌
-3. **SessionManager 攔截**（優先級最高）：如果用戶有活躍會話 → 路由到會話 handler
-4. **自動媒體下載**
-5. **命令路由**：`CommandRouter.route()` → 解析 → 權限檢查 → 分發
-
-### SessionManager
-
-通用互動會話管理器。處理所有需要多步驟問答的工具。
-
-- 同一用戶同時只能有一個活躍會話
-- 群組觸發的命令 → 中間問答經私訊 → 結果發回群組
-- 私訊觸發的命令 → 全部在私訊中完成
-- 預設 5 分鐘超時，自動清理
-- `#cancel` 通用取消任何活躍會話
-
-### DataStore
-
-統一資料層。主程式不直接讀寫檔案，所有持久化操作透過 DataStore。
-
-- `getAdmins()` / `addAdmin()` / `removeAdmin()`
-- `getBlockedUsers()` / `blockUser()` / `unblockUser()`
-- `getAuthorizedGroups()` / `addAuthorizedGroup()` / `removeAuthorizedGroup()`
-- `get(key, default)` / `set(key, value)` — 通用鍵值（擴展用）
-- `exportFile(filename, content)` — 統一出檔
-
-### AuthManager
-
-統一權限管理，依賴 DataStore 進行持久化。
-
-- `checkPermission(userId)` → `{ isAdmin, whitelistEnabled, hasFullAccess, isBlocked }`
-- `isBlocked(userId)` — 封鎖檢查優先於所有權限
-- `authenticateDirect(userId, password)` — 內聯認證
-- `startPrivateSession()` / `handlePrivateReply()` — DM 認證流程
-- 密碼優先從 `process.env.AUTH_PASSWORD` 讀取
+| 命令 | 類別 | 權限 | 功能 |
+|------|------|------|------|
+| `!ping` | 基礎 | 公開 | 測試響應 |
+| `!help` | 基礎 | 公開 | 幫助訊息 |
+| `!status` | 基礎 | 公開 | 機器人狀態 |
+| `!stats` | 基礎 | 公開 | 今日統計 |
+| `!weather` / `!天氣` | 資訊 | 公開 | 香港天氣 |
+| `!news` / `!新聞` / `!地盤` | 資訊 | 公開 | 地盤新聞 |
+| `!whitelist <密碼>` | 認證 | 公開 | 內聯認證 |
+| `!whitelist` | 認證 | 公開 | DM 認證流程 |
+| `#TOPDF [標題]` | PDF | 管理 | 照片收集→PDF |
+| `#done` | PDF | 管理 | 完成 PDF |
+| `#cancel` | 通用 | 公開 | 取消當前會話 |
+| `#申報` | 考勤 | 管理 | 申報今日人數 |
+| `#今日人數` | 考勤 | 管理 | 查詢今日申報 |
+| `#登記判頭` | 考勤 | 管理 | 互動登記判頭 |
+| `#判頭列表` | 考勤 | 管理 | 列出判頭 |
+| `#移除判頭 [ID]` | 考勤 | 管理 | 移除判頭 |
+| `!security` | 管理 | 管理 | 安全狀態 |
+| `!cleanup` | 管理 | 管理 | 系統清理 |
+| `!mediastats` | 管理 | 管理 | 媒體統計 |
+| `!addgroup` | 管理 | 管理 | 授權群組 |
+| `!removegroup [ID]` | 管理 | 管理 | 移除授權 |
 
 ### WhatsApp 特定細節
 
-- 用戶 ID：`<電話號碼>@c.us`（私人）或 `<id>@g.us`（群組）
+- 用戶 ID：`<電話號碼>@c.us`（私人）或 `<id>@g.us`（群組）或 `<id>@lid`（LID 格式）
 - `message.fromMe` 過濾自己的訊息
 - `message.downloadMedia()` → `{ data: base64, mimetype }`
+- 系統 Chrome 路徑：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
+- 中文字體：`/Library/Fonts/Arial Unicode.ttf`（pdfkit 用，.ttf 優先於 .ttc）
