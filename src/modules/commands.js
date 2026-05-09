@@ -36,6 +36,13 @@ function registerAll(router) {
     router.register('cleanupwhitelist', cleanupWhitelistHandler, { requireAuth: true });
     router.register('addgroup', addGroupHandler, { requireAuth: true });
     router.register('removegroup', removeGroupHandler, { requireAuth: true });
+
+    // ========== 考勤命令 ==========
+    router.register('申報', reportHandler, { requireAuth: true, isHash: true });
+    router.register('今日人數', todayCountHandler, { requireAuth: true, isHash: true });
+    router.register('登記判頭', registerForemanHandler, { requireAuth: true, isHash: true });
+    router.register('判頭列表', listForemenHandler, { requireAuth: true, isHash: true });
+    router.register('移除判頭', removeForemanHandler, { requireAuth: true, isHash: true });
 }
 
 // =====================================================================
@@ -475,6 +482,135 @@ async function removeGroupHandler(message, context, _client, { authManager }) {
 
     authManager.removeAuthorizedGroup(targetGroupId);
     await message.reply(`✅ 已移除授權群組: ${targetGroupId}`);
+}
+
+// =====================================================================
+// 考勤命令
+// =====================================================================
+
+const {
+    removeForeman,
+    getForemen,
+    getTodayReport,
+    makeAttendanceHandler,
+    makeRegisterForemanHandler,
+    getExcelColumns,
+} = require('../../skills/workerAttendance');
+
+async function reportHandler(message, context, client, { sessionManager }) {
+    // 找出匹配此用戶的判頭記錄
+    const foremen = getForemen();
+    const foreman = foremen.find((f) => f.phone === context.userId);
+
+    if (!foreman) {
+        await message.reply(
+            '❌ 找不到您的判頭登記記錄。\n' +
+            '請管理員使用 `#登記判頭 [電話] [姓名] [公司] [Excel欄位]` 登記。'
+        );
+        return;
+    }
+
+    if (sessionManager.hasActive(context.userId)) {
+        await message.reply('⏰ 您已有一個進行中的申報會話，請先完成或取消。');
+        return;
+    }
+
+    const handler = makeAttendanceHandler(foreman);
+    const result = await sessionManager.start(
+        context.userId,
+        context.originId,
+        handler,
+        {},
+        client,
+        null,
+        context.whatsappId || context.originId
+    );
+
+    if (result.success && result.isGroup && result.message) {
+        await message.reply(result.message);
+    }
+}
+
+async function todayCountHandler(message) {
+    const report = await getTodayReport();
+    if (!report) {
+        await message.reply('📊 今日尚未有申報記錄。');
+        return;
+    }
+
+    let text = '📊 *今日開工人數*\n\n';
+    text += `📅 日期: ${new Date().toLocaleDateString('zh-HK')}\n\n`;
+    for (const company of report.headerRow || []) {
+        const count = report.counts[company] !== undefined ? report.counts[company] : '-';
+        text += `• *${company}*: ${count} 人\n`;
+    }
+    text += `\n👷 *總數: ${report.total} 人*`;
+
+    await message.reply(text);
+}
+
+async function registerForemanHandler(message, context, client, { sessionManager }) {
+    // 互動對話形式登記判頭
+    // 自動擷取 WhatsApp ID，讓用戶從 Excel 欄位列表中選擇公司
+    if (sessionManager.hasActive(context.userId)) {
+        await message.reply('⏰ 您已有一個進行中的會話，請先完成或取消。');
+        return;
+    }
+
+    // 檢查 Excel 是否有欄位
+    const columns = await getExcelColumns();
+    if (columns.length === 0) {
+        await message.reply('❌ 無法讀取 Excel 欄位，請確認範本檔案存在。');
+        return;
+    }
+
+    const handler = makeRegisterForemanHandler();
+
+    // 傳遞額外 context：userId, pushname, groupId
+    const result = await sessionManager.start(
+        context.userId,
+        context.originId,
+        handler,
+        {
+            userId: context.userId,
+            pushname: context.pushname,
+            groupId: context.groupId,
+        },
+        client,
+        null,
+        context.whatsappId || context.originId
+    );
+
+    if (result.success && result.isGroup && result.message) {
+        await message.reply(result.message);
+    }
+}
+
+async function listForemenHandler(message) {
+    const foremen = getForemen();
+    if (foremen.length === 0) {
+        await message.reply('📋 尚未登記任何判頭。');
+        return;
+    }
+
+    let text = '📋 *已登記判頭列表*\n\n';
+    foremen.forEach((f, i) => {
+        text += `${i + 1}. *${f.name}* — ${f.company}\n`;
+        text += `   📱 ${f.phone} | Excel: ${f.excelColumn}\n`;
+        text += `   🆔 ${f.id}\n\n`;
+    });
+
+    await message.reply(text);
+}
+
+async function removeForemanHandler(message, context) {
+    const id = context.messageBody.replace(/^#移除判頭\s*/i, '').trim();
+    if (!id) {
+        await message.reply('❌ 用法：`#移除判頭 [ID]`');
+        return;
+    }
+    removeForeman(id);
+    await message.reply(`✅ 已移除判頭: ${id}`);
 }
 
 // =====================================================================

@@ -17,6 +17,8 @@ const CommandRouter = require('./core/commandRouter');
 const { sessionManager } = require('./core/sessionManager');
 const { dataStore } = require('./core/dataStore');
 const MonitorServer = require('./core/monitorServer');
+const Scheduler = require('./core/scheduler');
+const { dailyAttendanceTask } = require('../skills/workerAttendance');
 
 // ── 工具模組 ──
 const MessageLogger = require('../tools/messageLogger');
@@ -137,6 +139,10 @@ client.on('ready', async () => {
 
     // 切換監控伺服器為儀表板模式
     monitorServer.setReady(true);
+
+    // 啟動排程模組（每日 9:00 AM 考勤申報）
+    const scheduler = new Scheduler();
+    scheduler.start(client, dailyAttendanceTask);
 
     try {
         await healthMonitor.initialize();

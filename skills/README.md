@@ -1,117 +1,122 @@
-# 🎯 skills/ - 技能模組目錄
+# 🎯 skills/ - 建築工程技能模組
 
-此目錄包含 PBOTS 機器人的各種技能模組，每個模組實現特定的業務功能。
+此目錄包含 PBOTS 的工地業務技能模組。每個技能遵循 SessionManager 互動框架，透過 CommandRouter 登記。
 
-## 📋 預期技能列表
+## 🏗️ 已實作底層架構
 
-### 工地巡查 (SiteInspection)
+所有技能共享以下核心機制：
 
-- **功能**: 工地巡查表格填寫和報告生成
-- **文件**: `siteInspection.js`
-- **狀態**: 待實現
+- **SessionManager** (`src/core/sessionManager.js`)：群組觸發 → 私訊問答 → 群組結果，附群組鎖定防干擾
+- **CommandRouter** (`src/core/commandRouter.js`)：統一命令登記與權限分發
+- **DataStore** (`src/core/dataStore.js`)：所有可變數據的統一持久化入口
+- **AuthManager** (`src/core/authManager.js`)：管理員 / 封鎖 / 授權群組權限
 
-### 報銷入數 (ExpenseReporting)
+### 技能 Handler 標準介面
 
-- **功能**: 費用報銷申請和審批流程
-- **文件**: `expenseReporting.js`
-- **狀態**: 待實現
-
-### 試用申請 (TrialApplication)
-
-- **功能**: 產品試用申請和跟進
-- **文件**: `trialApplication.js`
-- **狀態**: 待實現
-
-### 設備管理 (EquipmentManagement)
-
-- **功能**: 設備登記、維護和狀態跟踪
-- **文件**: `equipmentManagement.js`
-- **狀態**: 待實現
-
-## 🔧 技能設計原則
-
-### 私信機制集成
-
-- **群組發起**: 技能命令在群組中觸發
-- **私信提問**: 具體問題在私信中進行
-- **群組結果**: 最終結果在群組中發布
-
-### 狀態管理
-
-- 會話狀態跟踪
-- 用戶進度保存
-- 超時和清理機制
-
-### 錯誤恢復
-
-- 中斷恢復能力
-- 數據一致性保證
-- 用戶友好錯誤訊息
-
-## 🎯 技能執行流程
-
-### 標準流程
-
-1. **觸發階段**: 用戶在群組中輸入技能命令
-2. **私信階段**: 機器人私下向用戶提問收集信息
-3. **處理階段**: 處理收集的信息並生成結果
-4. **發布階段**: 在群組中發布最終結果
-
-### 示例流程 (試用申請)
-
-```
-群組: 用戶A -> !trial
-私信: 機器人 -> 請輸入產品名稱?
-私信: 用戶A -> 產品X
-私信: 機器人 -> 收到: 產品X
-私信: 機器人 -> 請輸入申請數量?
-私信: 用戶A -> 10
-... (更多問題)
-群組: 機器人 -> 試用申請完成! 結果已保存
-```
-
-## 🔄 集成方式
-
-### 技能註冊
-
-```javascript
-const skills = {
-    trial: require('./skills/trialApplication'),
-    inspection: require('./skills/siteInspection'),
-};
-```
-
-### 命令路由
-
-```javascript
-// 在消息處理器中
-if (command in skills) {
-    const skill = skills[command];
-    await skill.execute(message, context);
+```js
+{
+    name: '技能名稱',
+    async start(ctx) → { question: "..." } | { done: true, result: "..." },
+    async handleReply(ctx, message) → { question: "..." } | { done: true, result: "..." },
+    async onTimeout(ctx) → "超時訊息",
+    async onCancel(ctx) → "取消訊息",
 }
 ```
 
-## 📈 開發指南
+### 登記方式
 
-### 創建新技能
+在 `src/modules/commands.js` 的 `registerAll()` 中：
 
-1. 在 `skills/` 目錄下創建新的 JavaScript 文件
-2. 實現技能類和執行方法
-3. 集成私信提問機制
-4. 實現結果生成和發布
-5. 添加錯誤處理和狀態管理
-6. 編寫測試用例
+```js
+router.register('命令名', handlerFunction, {
+    requireAuth: true,
+    aliases: ['別名'],
+    isHash: false,
+});
+```
 
-### 技能規範
+---
 
-- 統一的 API 接口
-- 支持異步操作
-- 完整的日誌記錄
-- 配置驅動的行為
+## 📋 計劃技能列表
 
-### 私信機制要求
+### 🕐 工人考勤 (WorkerAttendance)
 
-- 必須支持私信提問
-- 必須在群組中發布結果
-- 必須處理會話超時
-- 必須支持取消操作
+- **命令**: `#打卡` / `#收工` / `#考勤`
+- **功能**: 工人上下班拍照打卡、工種分類、工時統計報表
+- **數據**: workers.json, attendance.json
+- **狀態**: 待實作
+
+### 📦 物料追蹤 (MaterialTracking)
+
+- **命令**: `#登記物料 [UnitID]` / `#物料狀態 [UnitID]` / `#物料報表`
+- **功能**: 幕牆單元從生產→運送→安裝→驗收的完整狀態追蹤
+- **數據**: units.json, unit_status_log.json
+- **狀態**: 待實作
+
+### 🔍 瑕疵驗收 (SnagList)
+
+- **命令**: `#瑕疵 [描述]` / `#指派 [ID] [公司]` / `#修復完成 [ID]` / `#瑕疵報表`
+- **功能**: 拍照記錄瑕疵、分配責任方、跟進修復狀態、生成報表
+- **數據**: snags.json
+- **狀態**: 待實作
+
+### 🛡️ 安全紀錄 (SafetyRecord)
+
+- **命令**: `#安全巡查 [區域]` / `#事件上報` / `#工具箱`
+- **功能**: 每日安全巡查紀錄、危險事件上報、工具箱會議記錄
+- **數據**: safety_reports.json
+- **狀態**: 待實作
+
+### 📊 報表生成 (ReportGeneration)
+
+- **命令**: `#日報` / `#週報`
+- **功能**: 自動匯總當日/當週所有數據生成 PDF 報表
+- **輸出**: data/exports/
+- **狀態**: 待實作
+
+---
+
+## 🔧 技能執行流程
+
+### 標準流程（SessionManager 強制執行）
+
+```
+1. 觸發階段：用戶在群組（或私訊）發送命令
+2. 私訊階段：機器人透過 SessionManager 在私訊中收集資訊
+   每步皆有「✅ 收到: {答案}」確認回饋
+3. 處理階段：收集完成後處理數據，產生結果
+4. 發布階段：群組觸發 → 結果發回群組；私訊觸發 → 結果發回私訊
+```
+
+### 群組鎖定機制
+
+```
+師傅 A 在群組發起 #瑕疵
+  → 群組鎖定給師傅 A，其他人亂入被忽略
+  → 所有問答經私訊進行
+  → 完成後結果發回群組，解鎖
+```
+
+---
+
+## 🚀 開發指南
+
+### 建立新技能
+
+1. 在 `skills/` 目錄下建立 `skillName.js`
+2. 實作 SessionManager handler 介面（start / handleReply / onTimeout / onCancel）
+3. 使用 DataStore 進行數據持久化（`dataStore.get(key)` / `dataStore.set(key, value)`）
+4. 在 `src/modules/commands.js` 的 `registerAll()` 中登記命令
+5. 如需 PDF 輸出，使用 `dataStore.exportFile(filename, content)` 統一出檔
+
+### 數據規範
+
+- 所有可變數據透過 `src/core/dataStore.js` 操作
+- 專用數據可建立獨立 JSON 檔案（如 `data/store/snags.json`）
+- 報表/備份輸出到 `data/exports/`
+- 媒體檔案存放於 `data/images/`
+
+### 已安裝外部 Skills（Claude Code 輔助）
+
+- `gokapso/agent-skills@integrate-whatsapp` — WhatsApp API 參考（注意：非 whatsapp-web.js）
+- `jwynia/agent-skills@pdf-generator` — PDF 生成技術參考
