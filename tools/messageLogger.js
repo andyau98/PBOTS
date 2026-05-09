@@ -1,24 +1,15 @@
 const fs = require('fs');
 const path = require('path');
+const { ensureDir } = require('./common/utils');
 
 class MessageLogger {
     constructor(config = {}) {
         this.config = config;
         this.enabled = config.enabled !== false;
         this.savePath = config.save_path || './data/chats';
-        this.format = config.format || 'json';
 
         // 確保日誌目錄存在
-        this.ensureDirectoryExists(this.savePath);
-    }
-
-    /**
-     * 確保目錄存在
-     */
-    ensureDirectoryExists(dirPath) {
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath, { recursive: true });
-        }
+        ensureDir(this.savePath);
     }
 
     /**
@@ -32,7 +23,6 @@ class MessageLogger {
             if (message.type === 'document') return 'document';
             return 'media';
         }
-
         const body = message.body || '';
         if (body.startsWith('!')) return 'command';
         return 'chat';
@@ -70,31 +60,37 @@ class MessageLogger {
     }
 
     /**
-     * 獲取日誌文件名
+     * 獲取日誌檔案名稱（JSONL 格式）
      */
     getLogFilename() {
         const now = new Date();
         const dateString = now.toISOString().split('T')[0]; // YYYY-MM-DD
-        return path.join(this.savePath, `${dateString}.json`);
+        return path.join(this.savePath, `${dateString}.jsonl`);
     }
 
     /**
-     * 讀取現有日誌
+     * 讀取 JSONL 日誌（逐行解析）
      */
     readExistingLogs(filename) {
         try {
-            if (fs.existsSync(filename)) {
-                const content = fs.readFileSync(filename, 'utf8');
-                return JSON.parse(content);
-            }
+            if (!fs.existsSync(filename)) return [];
+            const content = fs.readFileSync(filename, 'utf8');
+            const lines = content.trim().split('\n').filter(Boolean);
+            return lines.map((line) => {
+                try {
+                    return JSON.parse(line);
+                } catch {
+                    return null;
+                }
+            }).filter(Boolean);
         } catch (error) {
-            console.error('❌ 讀取日誌文件失敗:', error.message);
+            console.error('❌ 讀取日誌檔案失敗:', error.message);
         }
         return [];
     }
 
     /**
-     * 保存訊息到日誌
+     * 保存訊息到 JSONL 日誌（append-only，O(1) 寫入）
      */
     async logMessage(message, context = {}) {
         if (!this.enabled) return;
@@ -103,18 +99,8 @@ class MessageLogger {
             const messageData = this.formatMessageData(message, context);
             const filename = this.getLogFilename();
 
-            // 讀取現有日誌
-            const existingLogs = this.readExistingLogs(filename);
-
-            // 添加新訊息
-            existingLogs.push(messageData);
-
-            // 保存到文件
-            fs.writeFileSync(
-                filename,
-                JSON.stringify(existingLogs, null, 2),
-                'utf8'
-            );
+            // JSONL：每行一條 JSON 記錄，直接附加寫入
+            fs.appendFileSync(filename, JSON.stringify(messageData) + '\n', 'utf8');
 
             console.log(`📝 訊息已記錄到: ${filename}`);
             return messageData;
@@ -142,16 +128,13 @@ class MessageLogger {
                 senders: {},
             };
 
-            // 統計訊息類型
             logs.forEach((log) => {
                 stats.messageTypes[log.type] =
                     (stats.messageTypes[log.type] || 0) + 1;
 
-                // 統計發送者
                 const senderKey = log.senderName || log.sender;
                 stats.senders[senderKey] = (stats.senders[senderKey] || 0) + 1;
 
-                // 統計群組
                 if (log.isGroup && log.groupName) {
                     stats.groups[log.groupName] =
                         (stats.groups[log.groupName] || 0) + 1;
@@ -212,7 +195,7 @@ class MessageLogger {
     }
 
     /**
-     * 清理舊日誌文件
+     * 清理舊日誌檔案
      */
     cleanupOldLogs(daysToKeep = 30) {
         try {
@@ -224,11 +207,11 @@ class MessageLogger {
                 const filePath = path.join(this.savePath, file);
                 const stat = fs.statSync(filePath);
 
-                if (stat.isFile() && file.endsWith('.json')) {
+                if (stat.isFile() && file.endsWith('.jsonl')) {
                     const fileDate = new Date(stat.mtime);
                     if (fileDate < cutoffDate) {
                         fs.unlinkSync(filePath);
-                        console.log(`🗑️ 已刪除舊日誌文件: ${file}`);
+                        console.log(`🗑️ 已刪除舊日誌檔案: ${file}`);
                     }
                 }
             });

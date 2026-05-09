@@ -1,9 +1,39 @@
 const fs = require('fs');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const { ensureDir, formatFileSize } = require('./common/utils');
 
-// 中文字體路徑（Windows 系統自帶黑體）
-const CHINESE_FONT = 'C:/Windows/Fonts/simhei.ttf';
+// 中文字體路徑 — 自動偵測作業系統
+const CHINESE_FONT = (() => {
+    try {
+        const os = require('os');
+        if (os.platform() === 'darwin') {
+            // .ttf 優先（pdfkit 對 .ttc 的 subset 支援有限）
+            const candidates = [
+                '/Library/Fonts/Arial Unicode.ttf',          // .ttf，pdfkit 完全支援
+                '/System/Library/Fonts/STHeiti Light.ttc',   // .ttc 備用
+                '/System/Library/Fonts/Hiragino Sans GB.ttc',
+                '/System/Library/Fonts/PingFang.ttc',
+            ];
+            for (const fontPath of candidates) {
+                if (fs.existsSync(fontPath)) {
+                    console.log(`✅ 中文字體: ${fontPath}`);
+                    return fontPath;
+                }
+            }
+        }
+        // Windows
+        const winFont = 'C:/Windows/Fonts/simhei.ttf';
+        if (fs.existsSync(winFont)) { console.log(`✅ 中文字體: ${winFont}`); return winFont; }
+        // Linux
+        const linuxFont = '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc';
+        if (fs.existsSync(linuxFont)) { console.log(`✅ 中文字體: ${linuxFont}`); return linuxFont; }
+    } catch (e) {
+        console.error('⚠️  字體偵測失敗:', e.message);
+    }
+    console.warn('⚠️  未找到中文字體，PDF 將使用 Helvetica（中文可能無法顯示）');
+    return null;
+})();
 
 class ImageToPdf {
     constructor(config = {}) {
@@ -11,21 +41,7 @@ class ImageToPdf {
         this.pdfPath = config.pdf_path || './data/pdfs';
         this.sessions = new Map(); // userId -> { photos[], title, createdAt }
 
-        this.ensureDirectoryExists(this.pdfPath);
-    }
-
-    ensureDirectoryExists(dirPath) {
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath, { recursive: true });
-        }
-    }
-
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 B';
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        ensureDir(this.pdfPath);
     }
 
     /**
@@ -88,7 +104,7 @@ class ImageToPdf {
 
         // 保存照片到临时目录
         const tmpDir = path.join(this.pdfPath, '.tmp');
-        this.ensureDirectoryExists(tmpDir);
+        ensureDir(tmpDir);
         const fileName = `${Date.now()}_${photoName || 'photo'}`;
         const filePath = path.join(tmpDir, fileName);
 
@@ -170,7 +186,7 @@ class ImageToPdf {
                     autoFirstPage: false,
                 });
 
-                const fontPath = fs.existsSync(CHINESE_FONT)
+                const fontPath = (CHINESE_FONT && fs.existsSync(CHINESE_FONT))
                     ? CHINESE_FONT
                     : null;
                 if (fontPath) {
@@ -262,7 +278,7 @@ class ImageToPdf {
                             .font(f)
                             .fillColor('#888888')
                             .text(
-                                `${hkTime}  |  ${this.formatFileSize(photo.size)}`,
+                                `${hkTime}  |  ${formatFileSize(photo.size)}`,
                                 x,
                                 captionY + 22,
                                 { width: gridW }
@@ -313,7 +329,7 @@ class ImageToPdf {
             '📄 *PDF 生成完成！*\n\n' +
             `📄 *標題:* ${result.title}\n` +
             `📷 *照片數量:* ${result.imageCount} 張\n` +
-            `📁 *文件大小:* ${this.formatFileSize(result.fileSize)}\n` +
+            `📁 *文件大小:* ${formatFileSize(result.fileSize)}\n` +
             `📄 *文件名:* ${result.fileName}\n\n` +
             '💡 PDF 已發送給您。'
         );

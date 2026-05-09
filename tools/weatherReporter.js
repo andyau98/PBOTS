@@ -1,4 +1,4 @@
-const https = require('https');
+const axios = require('axios');
 
 class WeatherReporter {
     constructor(config = {}) {
@@ -8,22 +8,13 @@ class WeatherReporter {
         console.log('🌤️ 香港天氣報告工具已初始化');
     }
 
-    fetchApi(url) {
-        return new Promise((resolve) => {
-            https
-                .get(url, (res) => {
-                    let data = '';
-                    res.on('data', (chunk) => (data += chunk));
-                    res.on('end', () => {
-                        try {
-                            resolve(JSON.parse(data));
-                        } catch {
-                            resolve(null);
-                        }
-                    });
-                })
-                .on('error', () => resolve(null));
-        });
+    async fetchApi(url) {
+        try {
+            const res = await axios.get(url, { timeout: 15000 });
+            return res.data;
+        } catch {
+            return null;
+        }
     }
 
     async getHongKongWeather() {
@@ -65,21 +56,11 @@ class WeatherReporter {
                 };
             }
 
+            const iconMap = {
+                1: '⛈️', 2: '🌧️', 3: '⛰️', 4: '🔥', 5: '💨', 6: '🌊',
+                7: '❄️', 8: '🌡️', 9: '🌧️', 10: '⛈️', 11: '🥶', 12: '🔥',
+            };
             const lines = data.details.map((w) => {
-                const iconMap = {
-                    1: '⛈️',
-                    2: '🌧️',
-                    3: '⛰️',
-                    4: '🔥',
-                    5: '💨',
-                    6: '🌊',
-                    7: '❄️',
-                    8: '🌡️',
-                    9: '🌧️',
-                    10: '⛈️',
-                    11: '🥶',
-                    12: '🔥',
-                };
                 const icon =
                     w.warningStatementCode && iconMap[w.warningStatementCode]
                         ? iconMap[w.warningStatementCode]

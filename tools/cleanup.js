@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { ensureDir, formatFileSize } = require('./common/utils');
 
 class CleanupManager {
     constructor(config = {}) {
@@ -11,29 +12,7 @@ class CleanupManager {
         this.pdfsPath = config.pdfs_path || './data/pdfs';
 
         // 確保備份目錄存在
-        this.ensureDirectoryExists(this.backupsPath);
-    }
-
-    /**
-     * 確保目錄存在
-     */
-    ensureDirectoryExists(dirPath) {
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath, { recursive: true });
-        }
-    }
-
-    /**
-     * 格式化文件大小
-     */
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 B';
-
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        ensureDir(this.backupsPath);
     }
 
     /**
@@ -96,7 +75,7 @@ class CleanupManager {
             const backupDir = path.dirname(backupPath);
 
             // 確保備份目錄存在
-            this.ensureDirectoryExists(backupDir);
+            ensureDir(backupDir);
 
             // 如果目標文件已存在，添加時間戳後綴
             let finalBackupPath = backupPath;
@@ -228,7 +207,7 @@ class CleanupManager {
         text += `• 發現舊文件: ${results.totalOldFiles} 個\n`;
         text += `• 成功移動: ${results.movedFiles} 個\n`;
         text += `• 移動失敗: ${results.failedMoves} 個\n`;
-        text += `• 釋放空間: ${this.formatFileSize(results.totalSize)}\n\n`;
+        text += `• 釋放空間: ${formatFileSize(results.totalSize)}\n\n`;
 
         if (results.scannedDirectories.length > 0) {
             text += '📁 *目錄掃描結果*\n';
@@ -272,13 +251,13 @@ class CleanupManager {
                 stats.directories[dir.name] = {
                     path: dir.path,
                     size: size,
-                    formattedSize: this.formatFileSize(size),
+                    formattedSize: formatFileSize(size),
                 };
                 stats.totalSize += size;
             }
         }
 
-        stats.formattedTotalSize = this.formatFileSize(stats.totalSize);
+        stats.formattedTotalSize = formatFileSize(stats.totalSize);
 
         return stats;
     }
@@ -353,7 +332,7 @@ class CleanupManager {
         return {
             deletedCount: deletedCount,
             deletedSize: deletedSize,
-            formattedSize: this.formatFileSize(deletedSize),
+            formattedSize: formatFileSize(deletedSize),
         };
     }
 

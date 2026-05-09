@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { formatFileSize, calculateDirSize } = require('./common/utils');
 
 class HealthMonitor {
     constructor(config = {}) {
@@ -117,60 +118,18 @@ class HealthMonitor {
 
         directories.forEach((dir) => {
             if (fs.existsSync(dir.path)) {
-                const size = this.calculateDirectorySize(dir.path);
+                const size = calculateDirSize(dir.path);
                 usage.directories[dir.name] = {
                     size: size,
-                    formattedSize: this.formatFileSize(size),
+                    formattedSize: formatFileSize(size),
                 };
                 usage.totalSize += size;
             }
         });
 
-        usage.formattedTotalSize = this.formatFileSize(usage.totalSize);
+        usage.formattedTotalSize = formatFileSize(usage.totalSize);
 
         return usage;
-    }
-
-    /**
-     * 计算目录大小
-     */
-    calculateDirectorySize(dirPath) {
-        let totalSize = 0;
-
-        if (!fs.existsSync(dirPath)) {
-            return totalSize;
-        }
-
-        const calculateSize = (currentPath) => {
-            const items = fs.readdirSync(currentPath);
-
-            for (const item of items) {
-                const itemPath = path.join(currentPath, item);
-                const stat = fs.statSync(itemPath);
-
-                if (stat.isDirectory()) {
-                    calculateSize(itemPath);
-                } else if (stat.isFile()) {
-                    totalSize += stat.size;
-                }
-            }
-        };
-
-        calculateSize(dirPath);
-        return totalSize;
-    }
-
-    /**
-     * 格式化文件大小
-     */
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 B';
-
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     /**

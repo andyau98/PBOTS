@@ -11,7 +11,9 @@ logs/
 
 # Data files
 data/chats/
-data/*.json
+data/exports/
+data/qr-code.*
+# data/store/ 目錄下的 JSON 為應用數據，應被追蹤
 
 # Backups
 backups/

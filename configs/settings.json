@@ -1,69 +1,67 @@
 {
-    "project": {
-        "name": "PBOTS",
-        "version": "1.0.0",
-        "description": "Engineering WhatsApp Bot with Private Messaging Mechanism"
+  "project": {
+    "name": "PBOTS",
+    "version": "1.0.0",
+    "description": "Engineering WhatsApp Bot with Private Messaging Mechanism"
+  },
+  "paths": {
+    "root": "./",
+    "src": "./src/",
+    "tools": "./tools/",
+    "skills": "./skills/",
+    "configs": "./configs/",
+    "logs": "./logs/",
+    "data": "./data/",
+    "backups": "./backups/",
+    "envelope": "./envelope/"
+  },
+  "bot": {
+    "name": "PBOTS",
+    "prefix": "!",
+    "adminUsers": [],
+    "autoReply": true,
+    "privateMessaging": true,
+    "groupSessionLock": true
+  },
+  "logging": {
+    "level": "info",
+    "file": "./logs/pbots.log",
+    "maxSize": "10m",
+    "maxFiles": 5
+  },
+  "features": {
+    "qrLogin": true,
+    "sessionPersistence": true,
+    "fileUpload": true,
+    "imageProcessing": true,
+    "pdfGeneration": true,
+    "excelIntegration": true,
+    "reply_in_group": true
+  },
+  "message_logging": {
+    "enabled": true,
+    "format": "json",
+    "save_path": "./data/chats"
+  },
+  "security": {
+    "whitelist_enabled": true,
+    "auth_password": ""
+  },
+  "media_download": {
+    "enabled": true,
+    "auto_download": true,
+    "image_path": "./data/images",
+    "pdf_path": "./data/pdfs",
+    "naming_convention": "[YYYYMMDD]_[SenderName]_[OriginalFileName]"
+  },
+  "commands": {
+    "ping": {
+      "description": "測試機器人響應",
+      "response": "pong"
     },
-    "paths": {
-        "root": "./",
-        "src": "./src/",
-        "tools": "./tools/",
-        "skills": "./skills/",
-        "configs": "./configs/",
-        "logs": "./logs/",
-        "data": "./data/",
-        "backups": "./backups/",
-        "envelope": "./envelope/"
-    },
-    "bot": {
-        "name": "PBOTS",
-        "prefix": "!",
-        "adminUsers": [],
-        "autoReply": true,
-        "privateMessaging": true,
-        "groupSessionLock": true
-    },
-    "logging": {
-        "level": "info",
-        "file": "./logs/pbots.log",
-        "maxSize": "10m",
-        "maxFiles": 5
-    },
-    "features": {
-        "qrLogin": true,
-        "sessionPersistence": true,
-        "fileUpload": true,
-        "imageProcessing": true,
-        "pdfGeneration": true,
-        "excelIntegration": true,
-        "reply_in_group": true
-    },
-    "message_logging": {
-        "enabled": true,
-        "format": "json",
-        "save_path": "./data/chats"
-    },
-    "security": {
-        "admin_numbers": [],
-        "authorized_groups": [],
-        "whitelist_enabled": true,
-        "auth_password": "288365"
-    },
-    "media_download": {
-        "enabled": true,
-        "auto_download": true,
-        "image_path": "./data/images",
-        "pdf_path": "./data/pdfs",
-        "naming_convention": "[YYYYMMDD]_[SenderName]_[OriginalFileName]"
-    },
-    "commands": {
-        "ping": {
-            "description": "測試機器人響應",
-            "response": "pong"
-        },
-        "help": {
-            "description": "顯示幫助訊息",
-            "response": "可用命令: !ping, !help"
-        }
+    "help": {
+      "description": "顯示幫助訊息",
+      "response": "可用命令: !ping, !help"
     }
+  }
 }

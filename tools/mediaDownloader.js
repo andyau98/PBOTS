@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { ensureDir, formatFileSize } = require('./common/utils');
 
 class MediaDownloader {
     constructor(config = {}) {
@@ -12,25 +13,16 @@ class MediaDownloader {
             config.naming_convention ||
             '[YYYYMMDD]_[SenderName]_[OriginalFileName]';
 
-        // 文件鎖管理
+        // 檔案鎖管理
         this.fileLocks = new Map();
 
         // 確保目錄存在
-        this.ensureDirectoryExists(this.imagePath);
-        this.ensureDirectoryExists(this.pdfPath);
+        ensureDir(this.imagePath);
+        ensureDir(this.pdfPath);
     }
 
     /**
-     * 確保目錄存在
-     */
-    ensureDirectoryExists(dirPath) {
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath, { recursive: true });
-        }
-    }
-
-    /**
-     * 申請文件鎖
+     * 申請檔案鎖
      */
     acquireLock(filePath) {
         const lockKey = path.resolve(filePath);
@@ -198,7 +190,7 @@ class MediaDownloader {
                 const fileSize = stats.size;
 
                 console.log(
-                    `📥 正在下載 [${mediaType.toUpperCase()}] 來自 ${senderName} -> ${filePath} (${this.formatFileSize(fileSize)})`
+                    `📥 正在下載 [${mediaType.toUpperCase()}] 來自 ${senderName} -> ${filePath} (${formatFileSize(fileSize)})`
                 );
 
                 return {
@@ -216,19 +208,6 @@ class MediaDownloader {
             console.error('❌ 下載媒體文件失敗:', error.message);
             return null;
         }
-    }
-
-    /**
-     * 格式化文件大小
-     */
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 B';
-
-        const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     /**
@@ -358,12 +337,12 @@ class MediaDownloader {
 
         result += '📈 *總體統計*\n';
         result += `• 總文件數: ${stats.totalFiles}\n`;
-        result += `• 總文件大小: ${this.formatFileSize(stats.totalSize)}\n\n`;
+        result += `• 總文件大小: ${formatFileSize(stats.totalSize)}\n\n`;
 
         if (Object.keys(stats.byType).length > 0) {
             result += '📋 *按類型統計*\n';
             Object.entries(stats.byType).forEach(([type, data]) => {
-                result += `• ${type}: ${data.count} 個文件 (${this.formatFileSize(data.size)})\n`;
+                result += `• ${type}: ${data.count} 個文件 (${formatFileSize(data.size)})\n`;
             });
             result += '\n';
         }
@@ -376,7 +355,7 @@ class MediaDownloader {
 
             recentDates.forEach((date) => {
                 const data = stats.byDate[date];
-                result += `• ${date}: ${data.count} 個文件 (${this.formatFileSize(data.size)})\n`;
+                result += `• ${date}: ${data.count} 個文件 (${formatFileSize(data.size)})\n`;
             });
             result += '\n';
         }
@@ -384,7 +363,7 @@ class MediaDownloader {
         if (stats.recentFiles.length > 0) {
             result += '🆕 *最近文件* (前5個)\n';
             stats.recentFiles.slice(0, 5).forEach((file, index) => {
-                result += `${index + 1}. ${file.name} (${this.formatFileSize(file.size)})\n`;
+                result += `${index + 1}. ${file.name} (${formatFileSize(file.size)})\n`;
             });
         }
 

@@ -1,46 +1,29 @@
-const https = require('https');
-const http = require('http');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
 class RealNewsFetcher {
     constructor(config = {}) {
         this.config = config;
         this.userAgent =
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-        console.log('📰 真實新聞抓取工具已初始化（Google News RSS）');
+        console.log('📰 真實新聞抓取工具已初始化（Google News RSS + cheerio）');
     }
 
     /**
-     * 發送 HTTP GET 請求
+     * 發送 HTTP GET 請求（使用 axios，自動處理 redirect 和 timeout）
      */
-    fetchUrl(url) {
-        return new Promise((resolve, reject) => {
-            const client = url.startsWith('https') ? https : http;
-            const req = client.get(
-                url,
-                { headers: { 'User-Agent': this.userAgent } },
-                (res) => {
-                    // 處理重定向
-                    if (
-                        res.statusCode >= 300 &&
-                        res.statusCode < 400 &&
-                        res.headers.location
-                    ) {
-                        this.fetchUrl(res.headers.location)
-                            .then(resolve)
-                            .catch(reject);
-                        return;
-                    }
-                    let data = '';
-                    res.on('data', (chunk) => (data += chunk));
-                    res.on('end', () => resolve(data));
-                }
-            );
-            req.on('error', reject);
-            req.setTimeout(15000, () => {
-                req.destroy();
-                resolve('');
+    async fetchUrl(url) {
+        try {
+            const res = await axios.get(url, {
+                headers: { 'User-Agent': this.userAgent },
+                timeout: 15000,
+                maxRedirects: 5,
+                responseType: 'text',
             });
-        });
+            return res.data;
+        } catch {
+            return '';
+        }
     }
 
     /**
@@ -65,23 +48,19 @@ class RealNewsFetcher {
     }
 
     /**
-     * 解析 Google News RSS XML
+     * 使用 cheerio 解析 Google News RSS XML
      */
     parseGoogleNewsRss(xml) {
         const articles = [];
-        // 使用正則匹配所有 <item>...</item>
-        const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-        let match;
+        const $ = cheerio.load(xml, { xmlMode: true });
 
-        while ((match = itemRegex.exec(xml)) !== null) {
-            const item = match[1];
+        $('item').each((_, item) => {
+            const title = $(item).find('title').text().trim();
+            const link = $(item).find('link').text().trim();
+            const pubDate = $(item).find('pubDate').text().trim();
+            const description = $(item).find('description').text().trim();
 
-            const title = this.extractTag(item, 'title');
-            const link = this.extractTag(item, 'link');
-            const pubDate = this.extractTag(item, 'pubDate');
-            const description = this.extractTag(item, 'description');
-
-            if (!title || title === 'Google 新聞') continue;
+            if (!title || title === 'Google 新聞') return;
 
             // 從 title 中提取來源（格式：標題 - 來源名稱）
             let source = '';
@@ -116,22 +95,9 @@ class RealNewsFetcher {
                 description: cleanDesc,
                 isReal: true,
             });
-        }
+        });
 
         return articles;
-    }
-
-    extractTag(str, tag) {
-        const regex = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
-        const match = str.match(regex);
-        if (!match) return '';
-        return match[1]
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&#39;/g, "'")
-            .replace(/&quot;/g, '"')
-            .trim();
     }
 
     /**
@@ -201,7 +167,7 @@ class RealNewsFetcher {
             '📰 來源: Google News 即時新聞\n' +
             `📊 相關新聞: ${articles.length} 條\n\n`;
 
-        // 顯示前 7 條（含完整描述及鏈接）
+        // 顯示前 7 條
         const topArticles = articles.slice(0, 7);
 
         topArticles.forEach((article, index) => {
