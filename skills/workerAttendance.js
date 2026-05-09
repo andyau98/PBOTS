@@ -261,7 +261,7 @@ function makeAttendanceHandler(foreman) {
 
             // 等待確認階段
             if (ctx.waitingConfirm) {
-                if (input.toLowerCase() === 'yes' || input === '是' || input === '確認') {
+                if (['y', 'yes', '是', '確認', 'ok'].includes(input.toLowerCase())) {
                     try {
                         const result = await writeWorkerCount(foreman.excelColumn, ctx.count);
                         return {
@@ -301,7 +301,7 @@ function makeAttendanceHandler(foreman) {
                 question:
                     `✅ *收到: ${ctx.count} 人*\n\n` +
                     `確認 *${foreman.company}* 今日工人數為 *${ctx.count} 人*？\n\n` +
-                    `回覆 \`yes\` 確認並寫入 Excel\n` +
+                    `回覆 \`y\` 確認並寫入 Excel\n` +
                     `回覆其他內容重新輸入人數`,
             };
         },
@@ -394,13 +394,13 @@ function makeRegisterForemanHandler() {
                     question:
                         `✅ 已選擇: *${selected.name}*\n\n` +
                         `確認登記？\n` +
-                        `回覆 \`yes\` 確認\n` +
+                        `回覆 \`y\` 確認\n` +
                         `回覆其他內容重新選擇`,
                 };
             }
 
             if (ctx.step === 'confirm') {
-                if (input.toLowerCase() === 'yes' || input === '是' || input === '確認') {
+                if (['y', 'yes', '是', '確認', 'ok'].includes(input.toLowerCase())) {
                     const id = registerForeman(
                         ctx.userId,           // 自動擷取 WhatsApp ID
                         ctx.pushname || '',   // 自動擷取 WhatsApp 名稱

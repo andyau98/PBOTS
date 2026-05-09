@@ -242,32 +242,45 @@ class AuthManager {
         const prefix = this.botPrefix;
 
         let text = '🤖 *PBOTS 幫助*\n\n';
-        text += '*基礎命令:*\n';
-        text += `• ${prefix}ping - 測試機器人響應\n`;
-        text += `• ${prefix}help - 顯示幫助訊息\n`;
-        text += `• ${prefix}status - 顯示機器人狀態\n`;
-        text += `• ${prefix}stats - 查看今日統計數據\n`;
-        text += `• ${prefix}weather - 香港天氣報告\n`;
-        text += `• ${prefix}news / 新聞 / 地盤 / 意外 - 香港地盤意外新聞\n`;
+
+        text += '*📋 基礎:*\n';
+        text += `• ${prefix}ping - 測試響應\n`;
+        text += `• ${prefix}help - 幫助訊息\n`;
+        text += `• ${prefix}status - 機器人狀態\n`;
+        text += `• ${prefix}stats - 今日統計\n`;
+
+        text += '\n*🌤️ 資訊:*\n';
+        text += `• ${prefix}weather / 天氣 - 香港天氣\n`;
+        text += `• ${prefix}news / 新聞 / 地盤 - 地盤新聞\n`;
+
+        text += '\n*📄 PDF:*\n';
+        text += '• #TOPDF [標題] - 收集照片→PDF\n';
+        text += '• #done - 完成生成 PDF\n';
+        text += '• #cancel - 取消會話\n';
+
+        text += '\n*🕐 考勤:*\n';
+        text += '• #申報 - 申報今日人數\n';
+        text += '• #今日人數 - 查詢今日申報\n';
 
         if (permission.hasFullAccess) {
-            text += '\n*管理員命令:*\n';
-            text += `• ${prefix}security - 查看安全狀態\n`;
+            text += '\n*👑 管理:*\n';
+            text += `• ${prefix}security - 安全狀態\n`;
             text += `• ${prefix}cleanup - 系統清理\n`;
-            text += `• ${prefix}mediastats - 查看媒體統計\n`;
-            text += '• #TOPDF [標題] - 開始收集照片生成PDF\n';
+            text += `• ${prefix}mediastats - 媒體統計\n`;
             text += `• ${prefix}whitelist - 白名單認證\n`;
-            text += `• ${prefix}addgroup - 授權當前群組（群組內所有人獲得權限）\n`;
-            text += `• ${prefix}removegroup [ID] - 移除群組授權\n`;
-            text += '\n👑 您擁有完整管理員權限\n';
+            text += `• ${prefix}addgroup - 授權群組\n`;
+            text += `• ${prefix}removegroup [ID] - 移除授權\n`;
+            text += '• #登記判頭 - 登記判頭\n';
+            text += '• #判頭列表 - 判頭列表\n';
+            text += '• #移除判頭 [ID] - 移除判頭\n';
+            text += '\n👑 完整管理員權限\n';
         } else {
-            text += '\n*進階功能:*\n';
-            text += `• ${prefix}whitelist <密碼> - 直接認證獲取管理員權限\n`;
-            text += `• ${prefix}whitelist - 透過私信問答認證\n`;
-            text += `🔓 使用 ${prefix}whitelist <密碼> 直接獲取完整權限\n`;
+            text += '\n*🔓 認證:*\n';
+            text += `• ${prefix}whitelist <密碼> - 直接認證\n`;
+            text += `• ${prefix}whitelist - 私信認證\n`;
         }
 
-        text += `\n白名單模式: ${this.whitelistEnabled ? '✅ 已啟用' : '❌ 已禁用'}`;
+        text += `\n🔐 白名單: ${this.whitelistEnabled ? '✅' : '❌'} | 📋 前綴: ${this.botPrefix}`;
         return text;
     }
 
