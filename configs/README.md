@@ -8,13 +8,13 @@
 
 - **主要功能**: 機器人的主要配置檔案
 - **配置項目**:
-  - 項目基本信息 (名稱、版本、描述)
-  - 路徑配置 (各目錄路徑)
-  - 機器人設定 (名稱、前綴、功能開關)
-  - 日誌設定 (級別、文件、大小限制)
-  - 功能開關 (QR登入、會話持久化等)
-  - 安全設定 (認證、允許群組、封鎖用戶)
-  - 命令配置 (描述、回應內容)
+    - 項目基本信息 (名稱、版本、描述)
+    - 路徑配置 (各目錄路徑)
+    - 機器人設定 (名稱、前綴、功能開關)
+    - 日誌設定 (級別、文件、大小限制)
+    - 功能開關 (QR登入、會話持久化等)
+    - 安全設定 (認證、允許群組、封鎖用戶)
+    - 命令配置 (描述、回應內容)
 
 ## 🔧 配置結構
 
@@ -22,11 +22,11 @@
 
 ```json
 {
-  "project": {
-    "name": "PBOTS",
-    "version": "1.0.0",
-    "description": "Engineering WhatsApp Bot"
-  }
+    "project": {
+        "name": "PBOTS",
+        "version": "1.0.0",
+        "description": "Engineering WhatsApp Bot"
+    }
 }
 ```
 
@@ -34,11 +34,11 @@
 
 ```json
 {
-  "paths": {
-    "root": "./",
-    "src": "./src/",
-    "tools": "./tools/"
-  }
+    "paths": {
+        "root": "./",
+        "src": "./src/",
+        "tools": "./tools/"
+    }
 }
 ```
 
@@ -46,12 +46,12 @@
 
 ```json
 {
-  "bot": {
-    "name": "PBOTS",
-    "prefix": "!",
-    "privateMessaging": true,
-    "groupSessionLock": true
-  }
+    "bot": {
+        "name": "PBOTS",
+        "prefix": "!",
+        "privateMessaging": true,
+        "groupSessionLock": true
+    }
 }
 ```
 

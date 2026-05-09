@@ -5,11 +5,13 @@
 ## 🚀 功能特色
 
 ### 🔒 私信機制 (核心功能)
+
 - **群組發起，私信提問**：用戶在群組中發起指令，機器人私下向用戶提問
 - **避免群組干擾**：其他用戶不會錯誤回答，保持群組交流自由
 - **群組結果發布**：所有問題完成後，在群組中統一發布結果
 
 ### 📋 基礎功能
+
 - ✅ QR Code 掃描登入
 - ✅ 持久化會話 (免重複掃碼)
 - ✅ 基礎命令測試 (`!ping`, `!help`, `!status`)
@@ -37,11 +39,13 @@ PBOTS/
 ## 🛠️ 快速開始
 
 ### 1. 安裝依賴
+
 ```bash
 npm install
 ```
 
 ### 2. 啟動機器人
+
 ```bash
 npm start
 # 或
@@ -49,6 +53,7 @@ node src/index.js
 ```
 
 ### 3. 掃描 QR Code
+
 - 在終端機中會顯示 QR Code
 - 使用 WhatsApp 掃描登入
 - 成功後機器人會自動開始監聽訊息
@@ -56,11 +61,13 @@ node src/index.js
 ## 📱 使用方式
 
 ### 基礎命令
+
 - `!ping` - 測試機器人響應 (回覆: pong)
 - `!help` - 顯示幫助訊息
 - `!status` - 顯示機器人狀態
 
 ### 私信機制流程
+
 1. **群組發起**：在群組中輸入 `!trial` (或其他需要輸入的指令)
 2. **私信提問**：機器人私下向您發送第一個問題
 3. **私信回答**：在私信中回答問題，機器人會確認收到
@@ -72,16 +79,16 @@ node src/index.js
 
 ```json
 {
-  "bot": {
-    "name": "PBOTS",
-    "prefix": "!",
-    "privateMessaging": true,
-    "groupSessionLock": true
-  },
-  "features": {
-    "qrLogin": true,
-    "sessionPersistence": true
-  }
+    "bot": {
+        "name": "PBOTS",
+        "prefix": "!",
+        "privateMessaging": true,
+        "groupSessionLock": true
+    },
+    "features": {
+        "qrLogin": true,
+        "sessionPersistence": true
+    }
 }
 ```
 
@@ -95,17 +102,20 @@ node src/index.js
 ## 📈 開發計劃
 
 ### Phase 1 ✅ - 基礎骨架與 QR 登入
+
 - [x] 標準目錄結構建立
 - [x] 環境與依賴初始化
 - [x] 獨立參數配置
 - [x] 核心入口文件
 
 ### Phase 2 🔄 - 消息處理系統
+
 - [ ] 實現消息分類和路由
 - [ ] 添加更多實用命令
 - [ ] 支持文件上傳和下載
 
 ### Phase 3 📋 - Excel 集成
+
 - [ ] 實現 Excel 填表功能
 - [ ] 私信提問機制完整實現
 - [ ] 群組結果發布功能
@@ -113,11 +123,13 @@ node src/index.js
 ## 🐛 故障排除
 
 ### 常見問題
+
 1. **QR Code 無法掃描**：確保網絡連接正常，重新啟動機器人
 2. **消息無回應**：檢查命令前綴是否正確 (預設為 `!`)
 3. **權限問題**：確保有足夠權限訪問所需文件
 
 ### 日誌文件
+
 日誌保存在 `logs/pbots.log`，可用於排查問題。
 
 ## 📄 許可證

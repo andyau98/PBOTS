@@ -7,7 +7,7 @@ class MessageLogger {
         this.enabled = config.enabled !== false;
         this.savePath = config.save_path || './data/chats';
         this.format = config.format || 'json';
-        
+
         // 確保日誌目錄存在
         this.ensureDirectoryExists(this.savePath);
     }
@@ -32,7 +32,7 @@ class MessageLogger {
             if (message.type === 'document') return 'document';
             return 'media';
         }
-        
+
         const body = message.body || '';
         if (body.startsWith('!')) return 'command';
         return 'chat';
@@ -44,13 +44,19 @@ class MessageLogger {
     formatMessageData(message, context = {}) {
         const isGroup = message.from.endsWith('@g.us');
         const now = new Date();
-        
+
         return {
             timestamp: now.toISOString(),
             isGroup: isGroup,
             sender: message.from,
-            groupName: isGroup ? (message.chat?.name || context.groupName || 'Unknown Group') : null,
-            senderName: context.senderName || message.author || message._data?.notifyName || 'Unknown',
+            groupName: isGroup
+                ? message.chat?.name || context.groupName || 'Unknown Group'
+                : null,
+            senderName:
+                context.senderName ||
+                message.author ||
+                message._data?.notifyName ||
+                'Unknown',
             content: message.body || '',
             type: this.getMessageType(message),
             messageId: message.id._serialized || message.id.id,
@@ -58,8 +64,8 @@ class MessageLogger {
             mediaType: message.type || null,
             context: {
                 pushname: context.pushname,
-                isGroup: context.isGroup
-            }
+                isGroup: context.isGroup,
+            },
         };
     }
 
@@ -96,16 +102,20 @@ class MessageLogger {
         try {
             const messageData = this.formatMessageData(message, context);
             const filename = this.getLogFilename();
-            
+
             // 讀取現有日誌
             const existingLogs = this.readExistingLogs(filename);
-            
+
             // 添加新訊息
             existingLogs.push(messageData);
-            
+
             // 保存到文件
-            fs.writeFileSync(filename, JSON.stringify(existingLogs, null, 2), 'utf8');
-            
+            fs.writeFileSync(
+                filename,
+                JSON.stringify(existingLogs, null, 2),
+                'utf8'
+            );
+
             console.log(`📝 訊息已記錄到: ${filename}`);
             return messageData;
         } catch (error) {
@@ -120,29 +130,31 @@ class MessageLogger {
         try {
             const filename = this.getLogFilename();
             const logs = this.readExistingLogs(filename);
-            
+
             const stats = {
                 totalMessages: logs.length,
-                groupMessages: logs.filter(log => log.isGroup).length,
-                privateMessages: logs.filter(log => !log.isGroup).length,
-                commands: logs.filter(log => log.type === 'command').length,
-                mediaMessages: logs.filter(log => log.hasMedia).length,
+                groupMessages: logs.filter((log) => log.isGroup).length,
+                privateMessages: logs.filter((log) => !log.isGroup).length,
+                commands: logs.filter((log) => log.type === 'command').length,
+                mediaMessages: logs.filter((log) => log.hasMedia).length,
                 messageTypes: {},
                 groups: {},
-                senders: {}
+                senders: {},
             };
 
             // 統計訊息類型
-            logs.forEach(log => {
-                stats.messageTypes[log.type] = (stats.messageTypes[log.type] || 0) + 1;
-                
+            logs.forEach((log) => {
+                stats.messageTypes[log.type] =
+                    (stats.messageTypes[log.type] || 0) + 1;
+
                 // 統計發送者
                 const senderKey = log.senderName || log.sender;
                 stats.senders[senderKey] = (stats.senders[senderKey] || 0) + 1;
-                
+
                 // 統計群組
                 if (log.isGroup && log.groupName) {
-                    stats.groups[log.groupName] = (stats.groups[log.groupName] || 0) + 1;
+                    stats.groups[log.groupName] =
+                        (stats.groups[log.groupName] || 0) + 1;
                 }
             });
 
@@ -159,38 +171,38 @@ class MessageLogger {
     formatStats(stats) {
         if (!stats) return '❌ 無法獲取統計數據';
 
-        let result = `📊 *今日統計報告*\n`;
+        let result = '📊 *今日統計報告*\n';
         result += `📅 日期: ${new Date().toLocaleDateString()}\n\n`;
-        
-        result += `📈 *訊息統計*\n`;
+
+        result += '📈 *訊息統計*\n';
         result += `• 總訊息數: ${stats.totalMessages}\n`;
         result += `• 群組訊息: ${stats.groupMessages}\n`;
         result += `• 私聊訊息: ${stats.privateMessages}\n`;
         result += `• 命令數量: ${stats.commands}\n`;
         result += `• 媒體訊息: ${stats.mediaMessages}\n\n`;
-        
+
         if (Object.keys(stats.messageTypes).length > 0) {
-            result += `📋 *訊息類型*\n`;
+            result += '📋 *訊息類型*\n';
             Object.entries(stats.messageTypes).forEach(([type, count]) => {
                 result += `• ${type}: ${count}\n`;
             });
-            result += `\n`;
+            result += '\n';
         }
-        
+
         if (Object.keys(stats.groups).length > 0) {
-            result += `👥 *群組活動*\n`;
+            result += '👥 *群組活動*\n';
             Object.entries(stats.groups).forEach(([group, count]) => {
                 result += `• ${group}: ${count} 條訊息\n`;
             });
-            result += `\n`;
+            result += '\n';
         }
-        
+
         if (Object.keys(stats.senders).length > 0) {
-            result += `👤 *活躍用戶* (前5名)\n`;
+            result += '👤 *活躍用戶* (前5名)\n';
             const topSenders = Object.entries(stats.senders)
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 5);
-            
+
             topSenders.forEach(([sender, count], index) => {
                 result += `${index + 1}. ${sender}: ${count} 條訊息\n`;
             });
@@ -207,11 +219,11 @@ class MessageLogger {
             const files = fs.readdirSync(this.savePath);
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-            
-            files.forEach(file => {
+
+            files.forEach((file) => {
                 const filePath = path.join(this.savePath, file);
                 const stat = fs.statSync(filePath);
-                
+
                 if (stat.isFile() && file.endsWith('.json')) {
                     const fileDate = new Date(stat.mtime);
                     if (fileDate < cutoffDate) {

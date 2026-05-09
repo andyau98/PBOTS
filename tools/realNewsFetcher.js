@@ -4,7 +4,8 @@ const http = require('http');
 class RealNewsFetcher {
     constructor(config = {}) {
         this.config = config;
-        this.userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        this.userAgent =
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
         console.log('📰 真實新聞抓取工具已初始化（Google News RSS）');
     }
 
@@ -14,18 +15,31 @@ class RealNewsFetcher {
     fetchUrl(url) {
         return new Promise((resolve, reject) => {
             const client = url.startsWith('https') ? https : http;
-            const req = client.get(url, { headers: { 'User-Agent': this.userAgent } }, (res) => {
-                // 處理重定向
-                if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    this.fetchUrl(res.headers.location).then(resolve).catch(reject);
-                    return;
+            const req = client.get(
+                url,
+                { headers: { 'User-Agent': this.userAgent } },
+                (res) => {
+                    // 處理重定向
+                    if (
+                        res.statusCode >= 300 &&
+                        res.statusCode < 400 &&
+                        res.headers.location
+                    ) {
+                        this.fetchUrl(res.headers.location)
+                            .then(resolve)
+                            .catch(reject);
+                        return;
+                    }
+                    let data = '';
+                    res.on('data', (chunk) => (data += chunk));
+                    res.on('end', () => resolve(data));
                 }
-                let data = '';
-                res.on('data', chunk => data += chunk);
-                res.on('end', () => resolve(data));
-            });
+            );
             req.on('error', reject);
-            req.setTimeout(15000, () => { req.destroy(); resolve(''); });
+            req.setTimeout(15000, () => {
+                req.destroy();
+                resolve('');
+            });
         });
     }
 
@@ -42,7 +56,10 @@ class RealNewsFetcher {
 
             return this.parseGoogleNewsRss(xml);
         } catch (error) {
-            console.error(`   ❌ Google News 搜索失敗 (${query}):`, error.message);
+            console.error(
+                `   ❌ Google News 搜索失敗 (${query}):`,
+                error.message
+            );
             return [];
         }
     }
@@ -72,21 +89,23 @@ class RealNewsFetcher {
             const sourceMatch = title.match(/ - ([^-]+)$/);
             if (sourceMatch) {
                 source = sourceMatch[1].trim();
-                cleanTitle = title.substring(0, title.lastIndexOf(' - ')).trim();
+                cleanTitle = title
+                    .substring(0, title.lastIndexOf(' - '))
+                    .trim();
             }
 
             // 清理 description 中的 HTML
             const cleanDesc = description
                 ? description
-                    .replace(/<[^>]*>/g, '')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&#39;/g, "'")
-                    .replace(/&quot;/g, '"')
-                    .replace(/&nbsp;/g, ' ')
-                    .replace(/\s+/g, ' ')
-                    .trim()
+                      .replace(/<[^>]*>/g, '')
+                      .replace(/&amp;/g, '&')
+                      .replace(/&lt;/g, '<')
+                      .replace(/&gt;/g, '>')
+                      .replace(/&#39;/g, "'")
+                      .replace(/&quot;/g, '"')
+                      .replace(/&nbsp;/g, ' ')
+                      .replace(/\s+/g, ' ')
+                      .trim()
                 : '';
 
             articles.push({
@@ -95,7 +114,7 @@ class RealNewsFetcher {
                 source: source,
                 date: pubDate ? new Date(pubDate) : new Date(),
                 description: cleanDesc,
-                isReal: true
+                isReal: true,
             });
         }
 
@@ -123,7 +142,7 @@ class RealNewsFetcher {
             '香港 地盤 意外',
             '香港 工業意外',
             '香港 地盤 工傷',
-            '香港 建造 意外 安全'
+            '香港 建造 意外 安全',
         ];
 
         let allArticles = [];
@@ -137,7 +156,7 @@ class RealNewsFetcher {
 
         // 去重（按 URL）
         const seen = new Set();
-        const unique = allArticles.filter(a => {
+        const unique = allArticles.filter((a) => {
             if (seen.has(a.url)) return false;
             seen.add(a.url);
             return true;
@@ -156,25 +175,30 @@ class RealNewsFetcher {
      */
     formatNewsReport(articles) {
         const now = new Date();
-        const hkTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' }));
+        const hkTime = new Date(
+            now.toLocaleString('en-US', { timeZone: 'Asia/Hong_Kong' })
+        );
 
         if (!articles || articles.length === 0) {
-            return `🚧 *香港地盤意外新聞報告*\n\n` +
+            return (
+                '🚧 *香港地盤意外新聞報告*\n\n' +
                 `📅 報告時間: ${hkTime.toLocaleString('zh-HK', { hour12: false })}\n` +
-                `📍 地區: 香港特別行政區\n` +
-                `📰 來源: Google News\n\n` +
-                `✅ *暫無新消息*\n` +
-                `今日暫無新的地盤意外新聞報告。\n\n` +
-                `💡 *地盤安全提示*\n` +
-                `• 嚴格遵守安全操作規程\n` +
-                `• 定期檢查施工設備\n` +
-                `• 確保工人佩戴適當防護裝備`;
+                '📍 地區: 香港特別行政區\n' +
+                '📰 來源: Google News\n\n' +
+                '✅ *暫無新消息*\n' +
+                '今日暫無新的地盤意外新聞報告。\n\n' +
+                '💡 *地盤安全提示*\n' +
+                '• 嚴格遵守安全操作規程\n' +
+                '• 定期檢查施工設備\n' +
+                '• 確保工人佩戴適當防護裝備'
+            );
         }
 
-        let report = `🚧 *香港地盤意外新聞報告*\n\n` +
+        let report =
+            '🚧 *香港地盤意外新聞報告*\n\n' +
             `📅 報告時間: ${hkTime.toLocaleString('zh-HK', { hour12: false })}\n` +
-            `📍 地區: 香港特別行政區\n` +
-            `📰 來源: Google News 即時新聞\n` +
+            '📍 地區: 香港特別行政區\n' +
+            '📰 來源: Google News 即時新聞\n' +
             `📊 相關新聞: ${articles.length} 條\n\n`;
 
         // 顯示前 7 條（含完整描述及鏈接）
@@ -184,9 +208,9 @@ class RealNewsFetcher {
             const dateStr = article.date.toLocaleDateString('zh-HK', {
                 year: 'numeric',
                 month: '2-digit',
-                day: '2-digit'
+                day: '2-digit',
             });
-            report += `━━━━━━━━━━━━━━━━\n`;
+            report += '━━━━━━━━━━━━━━━━\n';
             report += `${index + 1}. *${article.title}*\n`;
             report += `📅 ${dateStr}  |  📢 ${article.source || '新聞來源'}\n`;
 
@@ -196,14 +220,15 @@ class RealNewsFetcher {
             if (article.url) {
                 report += `🔗 ${article.url}\n`;
             }
-            report += `\n`;
+            report += '\n';
         });
 
-        report += `💡 *地盤安全提示*\n` +
-            `• 嚴格遵守安全操作規程\n` +
-            `• 定期檢查施工設備狀態\n` +
-            `• 確保工人佩戴適當防護裝備\n` +
-            `• 加強高空作業安全監管`;
+        report +=
+            '💡 *地盤安全提示*\n' +
+            '• 嚴格遵守安全操作規程\n' +
+            '• 定期檢查施工設備狀態\n' +
+            '• 確保工人佩戴適當防護裝備\n' +
+            '• 加強高空作業安全監管';
 
         return report;
     }

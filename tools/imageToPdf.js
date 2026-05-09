@@ -36,19 +36,24 @@ class ImageToPdf {
      */
     requestTitle(userId) {
         if (this.sessions.has(userId)) {
-            return { success: false, message: '❌ 您已有一個進行中的 PDF 收集會話。\n請發送 *#cancel* 取消後再試。' };
+            return {
+                success: false,
+                message:
+                    '❌ 您已有一個進行中的 PDF 收集會話。\n請發送 *#cancel* 取消後再試。',
+            };
         }
 
         this.sessions.set(userId, {
             photos: [],
             title: '',
             createdAt: Date.now(),
-            state: 'waiting_for_title'
+            state: 'waiting_for_title',
         });
 
         return {
             success: true,
-            message: `📸 *PDF 生成 - 第一步*\n\n請輸入此 PDF 的標題（例如：地盤安全巡查報告）：`
+            message:
+                '📸 *PDF 生成 - 第一步*\n\n請輸入此 PDF 的標題（例如：地盤安全巡查報告）：',
         };
     }
 
@@ -64,12 +69,13 @@ class ImageToPdf {
 
         return {
             success: true,
-            message: `📸 *PDF 收集已開始*\n\n` +
+            message:
+                '📸 *PDF 收集已開始*\n\n' +
                 `📄 *標題:* ${session.title}\n` +
-                `📷 *已收集:* 0 張照片\n\n` +
-                `請發送照片（可附帶說明文字作為圖片描述）。\n` +
-                `發送 *#done* 完成並生成 PDF。\n` +
-                `發送 *#cancel* 取消。`
+                '📷 *已收集:* 0 張照片\n\n' +
+                '請發送照片（可附帶說明文字作為圖片描述）。\n' +
+                '發送 *#done* 完成並生成 PDF。\n' +
+                '發送 *#cancel* 取消。',
         };
     }
 
@@ -92,7 +98,7 @@ class ImageToPdf {
             path: filePath,
             name: photoName || fileName,
             caption: caption || '',
-            size: photoBuffer.length
+            size: photoBuffer.length,
         });
 
         return session.photos.length;
@@ -105,8 +111,10 @@ class ImageToPdf {
         const session = this.sessions.get(userId);
         if (session) {
             // 清理临时文件
-            session.photos.forEach(p => {
-                try { fs.unlinkSync(p.path); } catch {}
+            session.photos.forEach((p) => {
+                try {
+                    fs.unlinkSync(p.path);
+                } catch {}
             });
             this.sessions.delete(userId);
         }
@@ -133,8 +141,10 @@ class ImageToPdf {
         await this.createPdf(session.photos, session.title, pdfFilePath);
 
         // 清理临时文件
-        session.photos.forEach(p => {
-            try { fs.unlinkSync(p.path); } catch {}
+        session.photos.forEach((p) => {
+            try {
+                fs.unlinkSync(p.path);
+            } catch {}
         });
         this.sessions.delete(userId);
 
@@ -144,7 +154,7 @@ class ImageToPdf {
             fileName: pdfFileName,
             fileSize: stats.size,
             imageCount: session.photos.length,
-            title: session.title
+            title: session.title,
         };
     }
 
@@ -157,27 +167,32 @@ class ImageToPdf {
                 const doc = new PDFDocument({
                     size: 'A4',
                     margins: { top: 0, bottom: 0, left: 0, right: 0 },
-                    autoFirstPage: false
+                    autoFirstPage: false,
                 });
 
-                const fontPath = fs.existsSync(CHINESE_FONT) ? CHINESE_FONT : null;
+                const fontPath = fs.existsSync(CHINESE_FONT)
+                    ? CHINESE_FONT
+                    : null;
                 if (fontPath) {
                     doc.registerFont('CJK', fontPath);
                 }
                 const f = fontPath ? 'CJK' : 'Helvetica';
-                const hkTime = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+                const hkTime = new Date(Date.now() + 8 * 60 * 60 * 1000)
+                    .toISOString()
+                    .replace('T', ' ')
+                    .slice(0, 19);
 
                 const stream = fs.createWriteStream(outputPath);
                 doc.pipe(stream);
 
                 // 网格布局参数 (每页 2x2)
                 const margin = 40;
-                const topOffset = 50;  // 標題欄高度
-                const pageW = 595.28;   // A4 width in points
-                const pageH = 841.89;   // A4 height in points
-                const gridW = (pageW - margin * 2 - 12) / 2;  // 12 = gap between columns
-                const gridH = (pageH - margin * 2 - topOffset - 8) / 2;   // 8 = gap between rows
-                const imgH = gridH - 55;  // 55pt for caption below each photo
+                const topOffset = 50; // 標題欄高度
+                const pageW = 595.28; // A4 width in points
+                const pageH = 841.89; // A4 height in points
+                const gridW = (pageW - margin * 2 - 12) / 2; // 12 = gap between columns
+                const gridH = (pageH - margin * 2 - topOffset - 8) / 2; // 8 = gap between rows
+                const imgH = gridH - 55; // 55pt for caption below each photo
 
                 const cellsPerPage = 4;
                 const totalPages = Math.ceil(photos.length / cellsPerPage);
@@ -186,14 +201,21 @@ class ImageToPdf {
                     doc.addPage();
 
                     // 繪製標題欄
-                    doc.fontSize(14).font(f).fillColor('#333333')
-                       .text(title || 'PDF 報告', margin, 15, {
-                           width: pageW - margin * 2,
-                           align: 'center'
-                       });
-                    doc.moveTo(margin, topOffset - 10).lineTo(pageW - margin, topOffset - 10).stroke('#cccccc');
+                    doc.fontSize(14)
+                        .font(f)
+                        .fillColor('#333333')
+                        .text(title || 'PDF 報告', margin, 15, {
+                            width: pageW - margin * 2,
+                            align: 'center',
+                        });
+                    doc.moveTo(margin, topOffset - 10)
+                        .lineTo(pageW - margin, topOffset - 10)
+                        .stroke('#cccccc');
 
-                    const pagePhotos = photos.slice(page * cellsPerPage, (page + 1) * cellsPerPage);
+                    const pagePhotos = photos.slice(
+                        page * cellsPerPage,
+                        (page + 1) * cellsPerPage
+                    );
 
                     for (let idx = 0; idx < pagePhotos.length; idx++) {
                         const photo = pagePhotos[idx];
@@ -206,32 +228,56 @@ class ImageToPdf {
                             doc.image(photo.path, x, y, {
                                 fit: [gridW, imgH],
                                 align: 'center',
-                                valign: 'center'
+                                valign: 'center',
                             });
                         } catch (err) {
-                            doc.fontSize(10).font(f).fillColor('red')
-                               .text('[!] 無法加載', x + 5, y + imgH / 2 - 10, { width: gridW - 10 })
-                               .fillColor('black');
+                            doc.fontSize(10)
+                                .font(f)
+                                .fillColor('red')
+                                .text(
+                                    '[!] 無法加載',
+                                    x + 5,
+                                    y + imgH / 2 - 10,
+                                    { width: gridW - 10 }
+                                )
+                                .fillColor('black');
                         }
 
                         doc.rect(x, y, gridW, imgH).stroke('#cccccc');
 
                         const captionY = y + imgH + 6;
-                        const desc = photo.caption ? `相片描述：${photo.caption}` : (photo.name || '');
-                        doc.fontSize(8).font(f).fillColor('black')
-                           .text(desc, x, captionY, {
-                               width: gridW,
-                               height: 28,
-                               ellipsis: true,
-                               lineBreak: false
-                           });
-                        doc.fontSize(7).font(f).fillColor('#888888')
-                           .text(`${hkTime}  |  ${this.formatFileSize(photo.size)}`, x, captionY + 22, { width: gridW });
+                        const desc = photo.caption
+                            ? `相片描述：${photo.caption}`
+                            : photo.name || '';
+                        doc.fontSize(8)
+                            .font(f)
+                            .fillColor('black')
+                            .text(desc, x, captionY, {
+                                width: gridW,
+                                height: 28,
+                                ellipsis: true,
+                                lineBreak: false,
+                            });
+                        doc.fontSize(7)
+                            .font(f)
+                            .fillColor('#888888')
+                            .text(
+                                `${hkTime}  |  ${this.formatFileSize(photo.size)}`,
+                                x,
+                                captionY + 22,
+                                { width: gridW }
+                            );
                     }
 
-                    doc.fontSize(8).font(f).fillColor('#aaaaaa')
-                       .text(`${page + 1} / ${totalPages}`,
-                              pageW / 2 - 20, pageH - 30, { width: 40, align: 'center' });
+                    doc.fontSize(8)
+                        .font(f)
+                        .fillColor('#aaaaaa')
+                        .text(
+                            `${page + 1} / ${totalPages}`,
+                            pageW / 2 - 20,
+                            pageH - 30,
+                            { width: 40, align: 'center' }
+                        );
                 }
 
                 doc.end();
@@ -246,8 +292,15 @@ class ImageToPdf {
 
     generatePdfFileName(userId, title) {
         const now = new Date();
-        const ts = now.toISOString().replace(/[-:]/g, '').replace('T', '_').replace(/\./g, '_').slice(0, 21);
-        const cleanTitle = (title || 'document').replace(/[^a-zA-Z0-9一-鿿]/g, '_').substring(0, 30);
+        const ts = now
+            .toISOString()
+            .replace(/[-:]/g, '')
+            .replace('T', '_')
+            .replace(/\./g, '_')
+            .slice(0, 21);
+        const cleanTitle = (title || 'document')
+            .replace(/[^a-zA-Z0-9一-鿿]/g, '_')
+            .substring(0, 30);
         const cleanUserId = userId.replace('@c.us', '').replace(/[^\w]/g, '_');
         return `${ts}_${cleanUserId}_${cleanTitle}.pdf`;
     }
@@ -256,12 +309,14 @@ class ImageToPdf {
      * 格式化结果
      */
     formatResult(result) {
-        return `📄 *PDF 生成完成！*\n\n` +
+        return (
+            '📄 *PDF 生成完成！*\n\n' +
             `📄 *標題:* ${result.title}\n` +
             `📷 *照片數量:* ${result.imageCount} 張\n` +
             `📁 *文件大小:* ${this.formatFileSize(result.fileSize)}\n` +
             `📄 *文件名:* ${result.fileName}\n\n` +
-            `💡 PDF 已發送給您。`;
+            '💡 PDF 已發送給您。'
+        );
     }
 
     /**
@@ -273,7 +328,7 @@ class ImageToPdf {
         return {
             title: session.title,
             photoCount: session.photos.length,
-            createdAt: session.createdAt
+            createdAt: session.createdAt,
         };
     }
 
@@ -291,8 +346,10 @@ class ImageToPdf {
         const now = Date.now();
         for (const [userId, session] of this.sessions.entries()) {
             if (now - session.createdAt > timeoutMs) {
-                session.photos.forEach(p => {
-                    try { fs.unlinkSync(p.path); } catch {}
+                session.photos.forEach((p) => {
+                    try {
+                        fs.unlinkSync(p.path);
+                    } catch {}
                 });
                 this.sessions.delete(userId);
             }
