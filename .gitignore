@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# WhatsApp session data
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Logs
+logs/
+*.log
+
+# Data files
+data/chats/
+data/*.json
+
+# Backups
+backups/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# PDF output
+data/pdfs/
+data/images/
+
+# PM2
+ecosystem.config.js
