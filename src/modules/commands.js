@@ -182,7 +182,13 @@ async function whitelistHandler(message, context, client, { authManager, session
                         '👑 您已成為系統管理員\n' +
                         `📱 用戶ID: ${ctx.userId}\n` +
                         `⏰ 生效時間: ${new Date().toLocaleString()}\n\n` +
-                        '💡 現在您可以使用所有管理員指令。',
+                        '💡 *可用命令:*\n' +
+                        '!help - 查看完整命令列表\n' +
+                        '#TOPDF - 照片收集→PDF\n' +
+                        '#申報 - 考勤申報\n' +
+                        '#登記判頭 - 登記判頭\n' +
+                        '!security - 安全狀態\n' +
+                        '!cleanup - 系統清理',
                 };
             }
 

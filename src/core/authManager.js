@@ -143,8 +143,9 @@ class AuthManager {
             return {
                 success: true,
                 message:
-                    '✅ *認證成功！*\n\n👑 您已成為系統管理員\n🔓 擁有完整系統權限\n' +
-                    `📱 用戶ID: ${userId}\n⏰ 生效時間: ${new Date().toLocaleString()}`,
+                    '✅ *認證成功！*\n\n👑 您已成為系統管理員\n' +
+                    `📱 用戶ID: ${userId}\n⏰ 生效時間: ${new Date().toLocaleString()}\n\n` +
+                    '💡 發送 *!help* 查看完整命令列表',
                 userId,
             };
         }
@@ -200,9 +201,9 @@ class AuthManager {
                 this.addAdmin(userId);
 
                 const successMsg =
-                    '✅ *認證成功！*\n\n👑 您已成為系統管理員\n🔓 擁有完整系統權限\n' +
+                    '✅ *認證成功！*\n\n👑 您已成為系統管理員\n' +
                     `📱 用戶ID: ${userId}\n⏰ 生效時間: ${new Date().toLocaleString()}\n\n` +
-                    '💡 現在您可以使用所有管理員指令，包括:\n• !security - 查看安全狀態\n• !cleanup - 系統清理\n• #TOPDF - 圖片轉PDF\n• !whitelist - 幫助其他用戶認證';
+                    '💡 發送 *!help* 查看完整命令列表';
 
                 await this._sendPrivateMessage(userId, successMsg, client);
                 if (session.originId.endsWith('@g.us')) {

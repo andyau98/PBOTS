@@ -193,14 +193,19 @@ async function getTodayReport() {
         const { headerRow, dataRowNum, companyStartCol, totalCol, worksheet: ws } = info;
 
         const counts = {};
+        let calcTotal = 0;
         for (let c = companyStartCol; c < totalCol; c++) {
             const company = String(headerRow[c - 1] || '').trim();
             const val = ws.getCell(dataRowNum, c).value;
-            if (company && val !== undefined && val !== null && val !== '') {
-                counts[company] = Number(val) || 0;
+            const num = (val !== undefined && val !== null && val !== '') ? (Number(val) || 0) : 0;
+            if (company) {
+                counts[company] = num;
+                calcTotal += num;
             }
         }
-        const total = Number(ws.getCell(dataRowNum, totalCol).value) || 0;
+        // 手動計算總數（公式 cell 讀取不直接給數字）
+        const formulaVal = ws.getCell(dataRowNum, totalCol).value;
+        const total = (typeof formulaVal === 'number') ? formulaVal : calcTotal;
         const companies = [];
         for (let c = companyStartCol; c < totalCol; c++) {
             companies.push(String(headerRow[c - 1] || '').trim());
