@@ -133,11 +133,12 @@ src/
 │   ├── dataStore.js          # 統一資料層（所有持久化數據的唯一入口）
 │   ├── monitorServer.js      # HTTP 監控儀表板（localhost:3456）
 │   ├── logStream.js          # SSE 即時日誌串流
-│   └── scheduler.js          # node-cron 排程（每日 9:00 AM 考勤）
+│   └── scheduler.js          # node-cron 排程（9:00 AM 考勤 + 3:00 AM 圖紙索引重建）
 ├── modules/
 │   └── commands.js           # 所有命令的登記與處理函數
 skills/
 ├── workerAttendance.js       # 🕐 工人考勤模組
+├── drawingSearch.js          # 🔍 物料圖紙搜尋（預建索引 + 模糊匹配）
 └── README.md                 # 技能規劃
 tools/
 ├── common/utils.js           # 共用工具函數
@@ -153,7 +154,7 @@ tools/
 configs/
 └── settings.json             # 靜態配置
 data/
-├── store/                    # admins.json, blocked.json, groups.json, foremen.json
+├── store/                    # admins.json, blocked.json, groups.json, foremen.json, drawing_index.json
 ├── exports/                  # 統一輸出路徑
 ├── chats/                    # 訊息日誌 (JSONL)
 ├── images/                   # 媒體圖片
@@ -161,6 +162,39 @@ data/
 Sample/LabourSummary/
 └── HGRH開工人數表.xlsx        # 考勤 Excel 範本
 ```
+
+### 服務容器 (Services Container)
+
+`index.js` 初始化所有模組後，將其注入單一 `services` 物件，傳遞給每個命令處理器。可用的服務鍵名：
+
+```
+config, authManager, sessionManager, dataStore, monitorServer,
+messageLogger, mediaDownloader, imageToPdf, cleanupManager,
+healthMonitor, errorRecovery, weatherReporter, newsReporter
+```
+
+新增模組的 handler 可以透過解構取得所需服務：`async (msg, ctx, client, { serviceName }) => {}`
+
+### 排程任務
+
+| 時間 | 頻率 | 任務 |
+|------|------|------|
+| 9:00 AM | 週一至六 | 考勤申報（向已登記判頭發送私訊收集人數） |
+| 3:00 AM | 每日 | 重建圖紙索引（掃描 `paths.por` 目錄） |
+
+時區固定為 `Asia/Hong_Kong`。
+
+### 圖紙搜尋 (Drawing Search)
+
+`skills/drawingSearch.js` 使用**預建索引策略**：啟動時掃描 `config.paths.por` 目錄建立 `data/store/drawing_index.json`，後續查詢只讀索引不掃描檔案系統。索引支援物料碼前綴分類（FST=鐵料、FAC=鋁板、BGL=玻璃 等 10 類），並提供模糊匹配。凌晨 3:00 自動重建，管理員可手動 `#重建索引`。
+
+### DataStore 內部方法
+
+`foremen.json` 目前透過 `dataStore._read()` / `dataStore._write()` 內部方法操作（`workerAttendance.js` 和 `scheduler.js`），而非公共 API。DataStore 的泛型 `get(key)` / `set(key, value)` 使用 `data/store/app.json` 作為後端。
+
+### 錯誤恢復
+
+`tools/errorRecovery.js` 實現指數退避重連：基數 1 秒、上限 30 秒、最多 10 次。錯誤分類為：認證、連接、網絡、權限、檔案、媒體、記憶體、未知。心跳監控每 60 秒更新一次。
 
 ### 完整命令列表
 
@@ -171,12 +205,12 @@ Sample/LabourSummary/
 | `!status` | 基礎 | 公開 | 機器人狀態 |
 | `!stats` | 基礎 | 公開 | 今日統計 |
 | `!weather` / `!天氣` | 資訊 | 公開 | 香港天氣 |
-| `!news` / `!新聞` / `!地盤` | 資訊 | 公開 | 地盤新聞 |
+| `!news` / `!新聞` / `!地盤` / `!construction` / `!monitor` / `!監控` / `!accident` / `!意外` | 資訊 | 公開 | 地盤新聞 |
 | `!whitelist <密碼>` | 認證 | 公開 | 內聯認證 |
 | `!whitelist` | 認證 | 公開 | DM 認證流程 |
 | `#TOPDF [標題]` | PDF | 管理 | 照片收集→PDF |
 | `#done` | PDF | 管理 | 完成 PDF |
-| `#cancel` | 通用 | 公開 | 取消當前會話 |
+| `#cancel` | 通用 | 管理 | 取消當前會話 |
 | `#申報` | 考勤 | 管理 | 申報今日人數 |
 | `#今日人數` | 考勤 | 管理 | 查詢今日申報 |
 | `#登記判頭` | 考勤 | 管理 | 互動登記判頭 |
@@ -187,11 +221,22 @@ Sample/LabourSummary/
 | `!mediastats` | 管理 | 管理 | 媒體統計 |
 | `!addgroup` | 管理 | 管理 | 授權群組 |
 | `!removegroup [ID]` | 管理 | 管理 | 移除授權 |
+| `!cleanupwhitelist` | 管理 | 管理 | 重置所有白名單數據 |
+| `#圖紙 [編號]` | 圖紙 | 管理 | 搜尋圖紙 (POR) |
+| `#重建索引` | 圖紙 | 管理 | 手動重建圖紙索引 |
 
 ### WhatsApp 特定細節
 
 - 用戶 ID：`<電話號碼>@c.us`（私人）或 `<id>@g.us`（群組）或 `<id>@lid`（LID 格式）
+- SessionManager 在發送 DM 時會根據 originId 後綴自動推斷目標 ID 格式（`@c.us` vs `@lid`），見 `src/core/sessionManager.js:345`
 - `message.fromMe` 過濾自己的訊息
 - `message.downloadMedia()` → `{ data: base64, mimetype }`
 - 系統 Chrome 路徑：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
 - 中文字體：`/Library/Fonts/Arial Unicode.ttf`（pdfkit 用，.ttf 優先於 .ttc）
+
+### 關鍵配置路徑
+
+- `paths.por` — 物料圖紙目錄，`#圖紙` 命令的強依賴。若未設定或路徑不存在，圖紙搜尋會提示錯誤
+- `features.reply_in_group` — 控制群組中非 whitelist 命令是否回覆
+- `security.whitelist_enabled` — 白名單模式開關
+- `security.auth_password` — 靜態密碼備用（當 `.env` 未設定時使用，但 `authManager` 會警告示例密碼 `123456` 不安全）

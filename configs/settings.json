@@ -14,7 +14,7 @@
     "data": "./data/",
     "backups": "./backups/",
     "envelope": "./envelope/",
-    "por": "/path/to/POR/folder"
+    "por": "/Users/andyau/Desktop/POR"
   },
   "bot": {
     "name": "PBOTS",

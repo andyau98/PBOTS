@@ -248,6 +248,25 @@ function makeAttendanceHandler(foreman) {
         async start(ctx) {
             ctx.count = 0;
             ctx.foreman = foreman;
+
+            // 檢查今日是否已有申報記錄
+            const today = await getTodayReport();
+            const existing = (today && today.counts[foreman.company] !== undefined)
+                ? today.counts[foreman.company]
+                : null;
+            ctx.existingCount = existing;
+
+            if (existing !== null) {
+                return {
+                    question:
+                        `📋 *今日已申報: ${existing} 人*\n\n` +
+                        `🏢 公司: *${foreman.company}*\n` +
+                        `📅 日期: ${new Date().toLocaleDateString('zh-HK')}\n\n` +
+                        `如需修改，請輸入新的工人總數：\n` +
+                        `輸入 *#cancel* 保留目前數字`,
+                };
+            }
+
             return {
                 question:
                     `📋 *今日開工人數申報*\n\n` +
@@ -269,12 +288,14 @@ function makeAttendanceHandler(foreman) {
                 if (['y', 'yes', '是', '確認', 'ok'].includes(input.toLowerCase())) {
                     try {
                         const result = await writeWorkerCount(foreman.excelColumn, ctx.count);
+                        const isModify = ctx.existingCount !== null;
                         return {
                             done: true,
                             result:
-                                `✅ *已完成申報*\n\n` +
+                                `✅ *${isModify ? '已修改申報' : '已完成申報'}*\n\n` +
                                 `🏢 公司: *${foreman.company}*\n` +
-                                `👷 工人數: *${ctx.count} 人*\n` +
+                                `👷 工人數: *${ctx.count} 人*` +
+                                (isModify ? ` (原: ${ctx.existingCount} 人)` : '') + `\n` +
                                 `📅 日期: ${new Date().toLocaleDateString('zh-HK')}\n` +
                                 `📊 Excel: ${result.sheetName}`,
                         };
@@ -302,9 +323,11 @@ function makeAttendanceHandler(foreman) {
             ctx.count = parseInt(numMatch[0], 10);
             ctx.waitingConfirm = true;
 
+            const isModify = ctx.existingCount !== null;
             return {
                 question:
                     `✅ *收到: ${ctx.count} 人*\n\n` +
+                    (isModify ? `(原申報: ${ctx.existingCount} 人 → 修改為 ${ctx.count} 人)\n\n` : '') +
                     `確認 *${foreman.company}* 今日工人數為 *${ctx.count} 人*？\n\n` +
                     `回覆 \`y\` 確認並寫入 Excel\n` +
                     `回覆其他內容重新輸入人數`,
@@ -330,8 +353,8 @@ async function dailyAttendanceTask(client, foremen) {
             const handler = makeAttendanceHandler(foreman);
             const userId = foreman.phone;
             // 使用 SessionManager 啟動會話（私訊模式，originId = 判頭的電話）
-            const originId = foreman.phone;
-            if (!originId.includes('@')) originId + '@c.us';
+            let originId = foreman.phone;
+            if (!originId.includes('@')) originId = originId + '@c.us';
 
             await sessionManager.start(userId, originId, handler, {}, client);
             console.log(`📋 [Attendance] 已向 ${foreman.name}(${foreman.company}) 發送申報請求`);
