@@ -13,7 +13,8 @@
     "logs": "./logs/",
     "data": "./data/",
     "backups": "./backups/",
-    "envelope": "./envelope/"
+    "envelope": "./envelope/",
+    "por": "/path/to/POR/folder"
   },
   "bot": {
     "name": "PBOTS",

@@ -1,3 +1,5 @@
+const path = require('path');
+
 /**
  * 通用互動會話管理器（SessionManager）
  *
@@ -229,17 +231,20 @@ class SessionManager {
                 if (result.result) {
                     await this._sendToOrigin(session.originId, result.result, client);
                 }
-                // 如果有附件（如 PDF 檔案），一併發送
-                if (result.attachment) {
+                // 如果有附件（單一或多個），一併發送
+                const attachments = result.attachments || (result.attachment ? [result.attachment] : []);
+                for (const attPath of attachments) {
                     try {
                         const { MessageMedia } = require('whatsapp-web.js');
-                        const media = MessageMedia.fromFilePath(result.attachment);
+                        const media = MessageMedia.fromFilePath(attPath);
                         await client.sendMessage(session.originId, media, {
-                            caption: result.attachmentCaption || '📄 PDF 報告',
+                            caption: attachments.length === 1
+                                ? (result.attachmentCaption || '📄 檔案')
+                                : path.basename(attPath),
                         });
-                        console.log(`📎 [SessionManager] 附件已發送: ${result.attachment}`);
+                        console.log(`📎 [SessionManager] 附件已發送: ${attPath}`);
                     } catch (attErr) {
-                        console.error(`❌ [SessionManager] 發送附件失敗:`, attErr.message);
+                        console.error(`❌ [SessionManager] 發送附件失敗 (${attPath}):`, attErr.message);
                         await this._sendToOrigin(session.originId, `⚠️ 附件發送失敗: ${attErr.message}`, client);
                     }
                 }

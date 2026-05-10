@@ -18,14 +18,14 @@ class Scheduler {
      * 啟動排程
      * @param {object} client - WhatsApp client
      * @param {Function} attendanceTask - 考勤任務函數
+     * @param {object} [config] - 配置物件（含 paths.por）
      */
-    start(client, attendanceTask) {
-        // 每日 9:00 AM，週一至週六
-        // cron: 分 時 日 月 星期
+    start(client, attendanceTask, config) {
+        // 每日 9:00 AM，週一至週六 — 考勤申報
         const attendanceJob = cron.schedule('0 9 * * 1-6', async () => {
             console.log('⏰ [Scheduler] 觸發每日考勤申報 (9:00 AM)');
             try {
-                const foremen = dataStore.getForemen();
+                const foremen = dataStore._read('foremen.json', []);
                 if (foremen.length === 0) {
                     console.log('⚠️  [Scheduler] 沒有已登記的判頭，跳過考勤');
                     return;
@@ -34,12 +34,27 @@ class Scheduler {
             } catch (error) {
                 console.error('❌ [Scheduler] 考勤任務失敗:', error.message);
             }
-        }, {
-            timezone: 'Asia/Hong_Kong',
-        });
+        }, { timezone: 'Asia/Hong_Kong' });
 
         this._jobs.push(attendanceJob);
         console.log('⏰ 排程已設定: 每日 9:00 AM (週一至六) 觸發考勤申報');
+
+        // 每日凌晨 3:00 AM — 重建圖紙索引
+        if (config?.paths?.por) {
+            const porPath = config.paths.por;
+            const rebuildJob = cron.schedule('0 3 * * *', () => {
+                console.log('⏰ [Scheduler] 觸發圖紙索引重建 (3:00 AM)');
+                try {
+                    const { buildIndex } = require('../../skills/drawingSearch');
+                    buildIndex(porPath);
+                } catch (error) {
+                    console.error('❌ [Scheduler] 索引重建失敗:', error.message);
+                }
+            }, { timezone: 'Asia/Hong_Kong' });
+
+            this._jobs.push(rebuildJob);
+            console.log('⏰ 排程已設定: 每日凌晨 3:00 AM 重建圖紙索引');
+        }
     }
 
     /** 停止所有排程 */

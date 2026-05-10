@@ -263,6 +263,10 @@ class AuthManager {
         text += '• #申報 - 申報今日人數\n';
         text += '• #今日人數 - 查詢今日申報\n';
 
+        text += '\n*📦 圖紙:*\n';
+        text += '• #圖紙 [編號] - 搜尋加工圖\n';
+        text += '• #重建索引 - 重建圖紙索引\n';
+
         if (permission.hasFullAccess) {
             text += '\n*👑 管理:*\n';
             text += `• ${prefix}security - 安全狀態\n`;

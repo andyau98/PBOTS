@@ -142,7 +142,7 @@ client.on('ready', async () => {
 
     // 啟動排程模組（每日 9:00 AM 考勤申報）
     const scheduler = new Scheduler();
-    scheduler.start(client, dailyAttendanceTask);
+    scheduler.start(client, dailyAttendanceTask, config);
 
     try {
         await healthMonitor.initialize();

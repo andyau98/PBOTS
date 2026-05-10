@@ -43,6 +43,10 @@ function registerAll(router) {
     router.register('登記判頭', registerForemanHandler, { requireAuth: true, isHash: true });
     router.register('判頭列表', listForemenHandler, { requireAuth: true, isHash: true });
     router.register('移除判頭', removeForemanHandler, { requireAuth: true, isHash: true });
+
+    // ========== 物料圖紙命令 ==========
+    router.register('圖紙', drawingHandler, { requireAuth: true, isHash: true });
+    router.register('重建索引', rebuildIndexHandler, { requireAuth: true, isHash: true });
 }
 
 // =====================================================================
@@ -617,6 +621,81 @@ async function removeForemanHandler(message, context) {
     }
     removeForeman(id);
     await message.reply(`✅ 已移除判頭: ${id}`);
+}
+
+// =====================================================================
+// 物料圖紙命令
+// =====================================================================
+
+const {
+    makeDrawingSearchHandler,
+    buildIndex,
+    loadIndex,
+} = require('../../skills/drawingSearch');
+
+async function drawingHandler(message, context, client, { sessionManager, config }) {
+    // 檢查 POR 路徑
+    const porPath = config.paths?.por;
+    if (!porPath || !require('fs').existsSync(porPath)) {
+        await message.reply(
+            '❌ POR 資料夾路徑未設定或不存在。\n' +
+            '請管理員在 `configs/settings.json` 中設定 `paths.por`。'
+        );
+        return;
+    }
+
+    if (sessionManager.hasActive(context.userId)) {
+        await message.reply('⏰ 您已有一個進行中的會話，請先完成或取消。');
+        return;
+    }
+
+    // 確保索引已載入
+    loadIndex();
+
+    // 支援直接輸入： #圖紙 ACB-421234
+    const body = context.messageBody.replace(/^#圖紙\s*/i, '').trim();
+
+    const handler = makeDrawingSearchHandler();
+    const ctx = {};
+
+    // 如果直接帶了編號，跳過輸入步驟
+    if (body) {
+        ctx._directQuery = body;
+    }
+
+    const result = await sessionManager.start(
+        context.userId,
+        context.originId,
+        handler,
+        ctx,
+        client,
+        null,
+        context.whatsappId || context.originId
+    );
+
+    if (result.success && result.isGroup && result.message) {
+        await message.reply(result.message);
+    }
+}
+
+async function rebuildIndexHandler(message, _context, _client, { config }) {
+    const porPath = config.paths?.por;
+    if (!porPath || !require('fs').existsSync(porPath)) {
+        await message.reply('❌ POR 資料夾路徑未設定或不存在。');
+        return;
+    }
+
+    await message.reply('🔄 正在重建圖紙索引，請稍候...');
+    try {
+        const result = buildIndex(porPath);
+        await message.reply(
+            '✅ *索引重建完成*\n\n' +
+            `📂 檔案數量: ${result.fileCount}\n` +
+            `⏱️ 耗時: ${result.elapsed} 秒`
+        );
+    } catch (error) {
+        await message.reply(`❌ 索引重建失敗: ${error.message}`);
+    }
 }
 
 // =====================================================================
