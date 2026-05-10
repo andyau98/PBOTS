@@ -1,141 +1,123 @@
-# 🤖 PBOTS - Engineering WhatsApp Bot
+# 🤖 PBOTS - WhatsApp 工程管理機器人
 
-**PBOTS** (Private Bot for Organized Team Sessions) 是一個基於 WhatsApp Web API 的工程專用機器人，專為群組環境設計，採用私信提問機制避免群組干擾。
+PBOTS 是基於 `whatsapp-web.js` + `LocalAuth` 的 WhatsApp 機器人，專為幕牆工地管理設計，涵蓋考勤申報、物料圖紙搜尋、照片 PDF 生成、天氣新聞查詢等功能。
 
-## 🚀 功能特色
-
-### 🔒 私信機制 (核心功能)
-
-- **群組發起，私信提問**：用戶在群組中發起指令，機器人私下向用戶提問
-- **避免群組干擾**：其他用戶不會錯誤回答，保持群組交流自由
-- **群組結果發布**：所有問題完成後，在群組中統一發布結果
-
-### 📋 基礎功能
-
-- ✅ QR Code 掃描登入
-- ✅ 持久化會話 (免重複掃碼)
-- ✅ 基礎命令測試 (`!ping`, `!help`, `!status`)
-- ✅ 完整的錯誤處理和日誌系統
-
-## 📁 項目結構
-
-```
-PBOTS/
-├── src/                    # 核心源代碼
-│   └── index.js           # 主入口文件
-├── tools/                  # 輔助工具
-├── skills/                 # 技能模組
-├── configs/               # 配置檔案
-│   └── settings.json      # 主要配置
-├── logs/                  # 日誌檔案
-├── data/                  # 數據檔案
-│   ├── chats/             # 聊天記錄
-│   ├── images/            # 圖片檔案
-│   └── pdfs/              # PDF文檔
-├── backups/               # 備份檔案
-└── envelope/              # 封裝部署
-```
-
-## 🛠️ 快速開始
-
-### 1. 安裝依賴
+## 🚀 快速開始
 
 ```bash
+git clone https://github.com/andyau98/Pbots.git
+cd Pbots
+git checkout master
 npm install
+cp .env.example .env
+# 編輯 .env，設定 AUTH_PASSWORD=你的密碼
+npm start
 ```
 
-### 2. 啟動機器人
+首次啟動會在終端顯示 QR Code，用 WhatsApp 掃描登入。登入後 session 會保留，下次啟動無需重新掃碼。
+
+## 📱 完整命令列表
+
+| 命令 | 功能 |
+|------|------|
+| `!help` | 幫助訊息 |
+| `!ping` | 測試響應 |
+| `!status` | 機器人狀態 |
+| `!stats` | 今日統計 |
+| `!weather` / `!天氣` | 香港天氣 |
+| `!news` / `!地盤` / `!construction` / `!monitor` 等 | 地盤意外新聞 |
+| `!whitelist [密碼]` | 管理員認證 |
+| `#TOPDF [標題]` | 照片收集 → 生成 PDF |
+| `#done` | 完成 PDF 收集 |
+| `#cancel` | 取消當前會話 |
+| `#申報` | 申報今日工人人數（支援修改） |
+| `#今日人數` | 查詢今日各公司申報 |
+| `#登記判頭` | 互動式登記判頭 |
+| `#判頭列表` | 列出已登記判頭 |
+| `#移除判頭 [ID]` | 移除判頭 |
+| `#圖紙 [編號]` | 搜尋物料圖紙 (POR) |
+| `#重建索引` | 手動重建圖紙索引 |
+| `!addgroup` / `!removegroup` | 管理授權群組 |
+| `!security` / `!cleanup` / `!mediastats` | 系統管理 |
+| `!cleanupwhitelist` | 重置所有白名單 |
+
+## 🏗️ 核心功能
+
+### 🕐 工人考勤自動化
+- 每日 9:00 AM 自動向已登記判頭發送私訊收集工人人數
+- 支援手動 `#申報`（若已報過會顯示原有數字，可修改）
+- 數據自動寫入 Excel 範本，保留原有格式
+
+### 🔍 物料圖紙搜尋
+- 預建索引策略，支援物料碼前綴分類（FST=鐵料、FAC=鋁板…）
+- 模糊匹配，凌晨 3:00 AM 自動重建索引
+
+### 📸 照片 → PDF
+- `#TOPDF [標題]` 啟動照片收集，發送照片後 `#done` 生成 PDF
+- 多張照片自動排版為 A4 網格，支援中文標題
+
+### 🌐 監控儀表板
+- 瀏覽器打開 `http://localhost:3456`
+- 6 張詳細數據卡片（訊息/命令/管理/運行/會話/安全）
+- 即時日誌串流（支援過濾、搜索、暫停捲動）
+- 手機響應式適配
+
+## 📁 目錄結構
+
+```
+src/
+├── index.js              # 主入口
+├── core/                 # 核心模組（auth, router, session, datastore, monitor, scheduler）
+├── modules/commands.js   # 所有命令登記與處理
+skills/                   # 技能模組（workerAttendance, drawingSearch）
+tools/                    # 工具模組（logger, media, pdf, weather, news…）
+configs/settings.json     # 靜態配置
+data/store/               # 持久化數據（admins, blocked, groups, foremen…）
+Sample/LabourSummary/     # 考勤 Excel 範本
+```
+
+## 🖥️ 監控儀表板
+
+啟動後訪問 `http://localhost:3456`，包含：
+- **即時數據面板**：6 張卡片顯示今日訊息/命令/管理/系統資源/活躍會話/安全狀態
+- **Terminal 日誌**：SSE 即時串流，支援 Info/Warn/Error 過濾、關鍵字搜索、暫停捲動
+- **QR Code 頁面**：未登入時自動顯示掃碼頁面，登入後切換為儀表板
+
+## 🔧 開發
 
 ```bash
-npm start
-# 或
-node src/index.js
+npm start              # 啟動機器人
+npm run lint           # ESLint 檢查
+npm run lint:fix       # ESLint 自動修復
+npm run format         # Prettier 格式化
+npm run format:check   # Prettier 檢查
+npm test               # 執行測試
 ```
 
-### 3. 掃描 QR Code
+詳細架構說明見 [CLAUDE.md](CLAUDE.md)。
 
-- 在終端機中會顯示 QR Code
-- 使用 WhatsApp 掃描登入
-- 成功後機器人會自動開始監聽訊息
+## ⚙️ 換電腦設定
 
-## 📱 使用方式
+```bash
+# 1. 修改 POR 圖紙路徑
+#    編輯 configs/settings.json → paths.por
 
-### 基礎命令
+# 2. 複製 WhatsApp session（可選，避免重新掃碼）
+cp -r ~/舊電腦/.wwebjs_auth ./
 
-- `!ping` - 測試機器人響應 (回覆: pong)
-- `!help` - 顯示幫助訊息
-- `!status` - 顯示機器人狀態
-
-### 私信機制流程
-
-1. **群組發起**：在群組中輸入 `!trial` (或其他需要輸入的指令)
-2. **私信提問**：機器人私下向您發送第一個問題
-3. **私信回答**：在私信中回答問題，機器人會確認收到
-4. **群組結果**：所有問題完成後，機器人在群組中發布最終結果
-
-## ⚙️ 配置設定
-
-編輯 `configs/settings.json` 自定義機器人行為：
-
-```json
-{
-    "bot": {
-        "name": "PBOTS",
-        "prefix": "!",
-        "privateMessaging": true,
-        "groupSessionLock": true
-    },
-    "features": {
-        "qrLogin": true,
-        "sessionPersistence": true
-    }
-}
+# 3. 重新設定 Claude Code 權限
+#    .claude/ 目錄已被 gitignore，每台電腦獨立設定
 ```
 
-## 🔧 技術架構
+## 🐛 常見問題
 
-- **WhatsApp Web API**: 使用 whatsapp-web.js 庫
-- **持久化會話**: LocalAuth 實現免重複掃碼
-- **模組化設計**: 遵循標準化目錄結構
-- **錯誤處理**: 完整的異常處理機制
-
-## 📈 開發計劃
-
-### Phase 1 ✅ - 基礎骨架與 QR 登入
-
-- [x] 標準目錄結構建立
-- [x] 環境與依賴初始化
-- [x] 獨立參數配置
-- [x] 核心入口文件
-
-### Phase 2 🔄 - 消息處理系統
-
-- [ ] 實現消息分類和路由
-- [ ] 添加更多實用命令
-- [ ] 支持文件上傳和下載
-
-### Phase 3 📋 - Excel 集成
-
-- [ ] 實現 Excel 填表功能
-- [ ] 私信提問機制完整實現
-- [ ] 群組結果發布功能
-
-## 🐛 故障排除
-
-### 常見問題
-
-1. **QR Code 無法掃描**：確保網絡連接正常，重新啟動機器人
-2. **消息無回應**：檢查命令前綴是否正確 (預設為 `!`)
-3. **權限問題**：確保有足夠權限訪問所需文件
-
-### 日誌文件
-
-日誌保存在 `logs/pbots.log`，可用於排查問題。
+| 問題 | 解決方法 |
+|------|----------|
+| Bot 無法啟動 | `pkill -f "node src/index"` 確保舊進程已停止 |
+| QR Code 無法掃描 | 刪除 `.wwebjs_auth/` 目錄重新登入 |
+| 中文 PDF 亂碼 | 確認 `/Library/Fonts/Arial Unicode.ttf` 存在 (macOS) |
+| 圖紙搜尋報錯 | 確認 `configs/settings.json` 中 `paths.por` 路徑存在 |
 
 ## 📄 許可證
 
-MIT License - 詳見 LICENSE 文件
-
-## 🤝 貢獻
-
-歡迎提交 Issue 和 Pull Request 來改進 PBOTS！
+MIT License

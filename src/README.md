@@ -1,58 +1,25 @@
-# 📁 src/ - 核心源代碼目錄
+# 📁 src/ — PBOTS 核心原始碼
 
-此目錄包含 PBOTS 機器人的核心源代碼文件。
+## 入口
 
-## 📄 文件說明
+`index.js` — 主入口：初始化所有服務、WhatsApp 客戶端、訊息路由、生命週期管理。
 
-### index.js
+## 核心模組 (`core/`)
 
-- **主要功能**: 機器人的主入口文件
-- **實現功能**:
-    - WhatsApp 客戶端初始化
-    - QR Code 登入處理
-    - 消息監聽和命令處理
-    - 錯誤處理和日誌記錄
+| 檔案 | 職責 |
+|------|------|
+| `authManager.js` | 統一權限管理（管理員、群組授權、白名單） |
+| `commandRouter.js` | 命令路由器：登記 → 解析 → 權限檢查 → 分發 |
+| `sessionManager.js` | 互動會話管理（群組私訊分流 + 群組鎖定） |
+| `dataStore.js` | 統一資料層（唯一 JSON 讀寫入口） |
+| `monitorServer.js` | HTTP 監控儀表板 (localhost:3456) + SSE 日誌串流 |
+| `logStream.js` | Console 攔截 + 即時日誌推送 |
+| `scheduler.js` | node-cron 排程（考勤 9:00 AM / 索引重建 3:00 AM） |
 
-## 🔧 核心組件
+## 命令模組 (`modules/`)
 
-### 客戶端配置
+`commands.js` — 所有命令在 `registerAll()` 中透過 CommandRouter 登記。
 
-```javascript
-const client = new Client({
-    authStrategy: new LocalAuth({
-        clientId: 'pbots-client',
-    }),
-    puppeteer: {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    },
-});
-```
+## 架構詳情
 
-### 事件處理
-
-- `qr`: QR Code 生成事件
-- `ready`: 客戶端準備就緒事件
-- `message`: 消息接收事件
-- `auth_failure`: 認證失敗事件
-- `disconnected`: 連接中斷事件
-
-### 命令處理
-
-目前支持的基礎命令：
-
-- `!ping` - 測試響應
-- `!help` - 幫助訊息
-- `!status` - 狀態顯示
-
-## 📈 擴展指南
-
-### 添加新命令
-
-1. 在 `message` 事件處理器中添加新的 `case`
-2. 實現命令邏輯
-3. 更新配置文件和幫助訊息
-
-### 私信機制實現
-
-私信機制將在後續階段實現，用於處理需要用戶輸入的複雜命令。
+見根目錄 [CLAUDE.md](../CLAUDE.md)。

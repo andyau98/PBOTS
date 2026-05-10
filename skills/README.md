@@ -37,14 +37,21 @@ router.register('命令名', handlerFunction, {
 
 ---
 
-## 📋 計劃技能列表
+## 📋 技能列表
 
-### 🕐 工人考勤 (WorkerAttendance)
+### 🕐 工人考勤 (WorkerAttendance) ✅ 已實作
 
-- **命令**: `#打卡` / `#收工` / `#考勤`
-- **功能**: 工人上下班拍照打卡、工種分類、工時統計報表
-- **數據**: workers.json, attendance.json
-- **狀態**: 待實作
+- **命令**: `#申報` / `#今日人數` / `#登記判頭` / `#判頭列表` / `#移除判頭`
+- **功能**: 每日 9:00 AM 自動向判頭收集人數，寫入 Excel 範本，支援修改
+- **數據**: `data/store/foremen.json`
+- **檔案**: `skills/workerAttendance.js`
+
+### 🔍 物料圖紙搜尋 (Drawing Search) ✅ 已實作
+
+- **命令**: `#圖紙 [編號]` / `#重建索引`
+- **功能**: 預建索引搜尋 POR 目錄，支援物料碼分類（FST=鐵料、FAC=鋁板…），凌晨 3:00 AM 自動重建
+- **數據**: `data/store/drawing_index.json`
+- **檔案**: `skills/drawingSearch.js`
 
 ### 📦 物料追蹤 (MaterialTracking)
 

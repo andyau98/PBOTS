@@ -109,12 +109,33 @@ npm test               # 執行測試 (node --test)
 ```bash
 git clone https://github.com/andyau98/Pbots.git
 cd Pbots
-git checkout main
+git checkout master
 npm install
 cp .env.example .env
 # 編輯 .env，設定 AUTH_PASSWORD=你的密碼
 # 從舊電腦複製 .wwebjs_auth/ 目錄以保留 WhatsApp 登入（可選）
 npm start
+```
+
+### Claude Code 跨電腦工作
+
+此 repo 已包含 CLAUDE.md 和 `skills-lock.json`，Claude Code 會自動讀取：
+
+- **CLAUDE.md** — 專案指引，在任何電腦上 Claude Code 都會自動載入
+- **skills-lock.json** — 鎖定已安裝的 skills（integrate-whatsapp、pdf-generator），換電腦後 Claude Code 會自動還原
+- **`.claude/` 目錄** — 已在 `.gitignore` 中排除。每台電腦需獨立設定（permissions、hooks 等），不需同步
+
+### 換電腦後需手動調整
+
+```bash
+# 1. 修改 POR 圖紙路徑（每台電腦路徑不同）
+# 編輯 configs/settings.json → paths.por
+
+# 2. 若使用不同作業系統，檢查 Chrome 路徑
+# macOS 預設：/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+# Windows 需在 src/index.js 修改 puppeteer.executablePath
+
+# 3. 若沒有舊 WhatsApp session，掃 QR Code 重新登入即可
 ```
 
 ## 架構總覽
@@ -131,7 +152,7 @@ src/
 │   ├── commandRouter.js      # 命令路由器：登記→解析→權限→分發
 │   ├── sessionManager.js     # 通用互動會話管理器（群組/私訊分流 + 群組鎖定）
 │   ├── dataStore.js          # 統一資料層（所有持久化數據的唯一入口）
-│   ├── monitorServer.js      # HTTP 監控儀表板（localhost:3456）
+│   ├── monitorServer.js      # HTTP 監控儀表板（localhost:3456，6卡詳細數據 + 日誌過濾 + SSE 狀態）
 │   ├── logStream.js          # SSE 即時日誌串流
 │   └── scheduler.js          # node-cron 排程（9:00 AM 考勤 + 3:00 AM 圖紙索引重建）
 ├── modules/
@@ -188,6 +209,16 @@ healthMonitor, errorRecovery, weatherReporter, newsReporter
 
 `skills/drawingSearch.js` 使用**預建索引策略**：啟動時掃描 `config.paths.por` 目錄建立 `data/store/drawing_index.json`，後續查詢只讀索引不掃描檔案系統。索引支援物料碼前綴分類（FST=鐵料、FAC=鋁板、BGL=玻璃 等 10 類），並提供模糊匹配。凌晨 3:00 自動重建，管理員可手動 `#重建索引`。
 
+### 考勤模組 (Worker Attendance)
+
+`skills/workerAttendance.js` 管理判頭登記與每日工人人數申報。核心流程：
+
+- **登記判頭** (`#登記判頭`)：互動式選擇 Excel 欄位（公司名），自動綁定 WhatsApp ID
+- **申報人數** (`#申報`)：判頭輸入人數 → 確認 → 寫入 Excel。**若今日已申報，會顯示原有數字並支援修改**
+- **自動申報**：每日 9:00 AM（週一至六）向所有已登記判頭發送私訊請求
+- **查詢** (`#今日人數`)：顯示今日各公司已申報人數及總數
+- Excel 操作使用 `exceljs` 保留原有格式、樣式、合併儲存格
+
 ### DataStore 內部方法
 
 `foremen.json` 目前透過 `dataStore._read()` / `dataStore._write()` 內部方法操作（`workerAttendance.js` 和 `scheduler.js`），而非公共 API。DataStore 的泛型 `get(key)` / `set(key, value)` 使用 `data/store/app.json` 作為後端。
@@ -211,7 +242,7 @@ healthMonitor, errorRecovery, weatherReporter, newsReporter
 | `#TOPDF [標題]` | PDF | 管理 | 照片收集→PDF |
 | `#done` | PDF | 管理 | 完成 PDF |
 | `#cancel` | 通用 | 管理 | 取消當前會話 |
-| `#申報` | 考勤 | 管理 | 申報今日人數 |
+| `#申報` | 考勤 | 管理 | 申報今日人數（支援修改：重複觸發會顯示原有數字） |
 | `#今日人數` | 考勤 | 管理 | 查詢今日申報 |
 | `#登記判頭` | 考勤 | 管理 | 互動登記判頭 |
 | `#判頭列表` | 考勤 | 管理 | 列出判頭 |
