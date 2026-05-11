@@ -30,6 +30,14 @@ const MATERIAL_CODES = {
     BGL: '玻璃',
     FHA: '鋁料加工件',
     FSS: '不鏽鋼',
+    HGRH: '鋁型材',
+    ACD: '鋁板',
+    UN: '單元',
+    AP: '防水片',
+    JMA: '鋁角',
+    MSB: '鐵角',
+    MSA: '鐵碼',
+    MSH: '鐵Hollow',
 };
 
 // ========== 索引建立 ==========
@@ -42,6 +50,9 @@ function scanDirectory(dirPath) {
     const results = [];
     if (!fs.existsSync(dirPath)) return results;
 
+    // 排除的非系統碼（TG, 數字開頭, 單字母, 常見詞等）
+    const EXCLUDE_SYSTEMS = new Set(['TG', 'TAG', 'RF', 'FOR', 'AND', 'THE', 'NEW', 'OLD', 'POR', 'ISO', 'ASS', 'DWG', 'PDF', 'DXF', 'JPG', 'PNG', 'TIFF', 'TIF']);
+
     try {
         const entries = fs.readdirSync(dirPath, { withFileTypes: true });
         for (const entry of entries) {
@@ -52,18 +63,48 @@ function scanDirectory(dirPath) {
                 const ext = path.extname(entry.name).toLowerCase();
                 if (['.pdf', '.dwg', '.dxf', '.jpg', '.png', '.tiff', '.tif'].includes(ext)) {
                     const name = entry.name;
-                    // 提取系統碼（如 ACB, WWA）
-                    const sysMatch = name.match(/^([A-Z]{2,4})[-_]/);
-                    const system = sysMatch ? sysMatch[1] : '';
-                    // 提取 POR 名稱（從路徑中）
-                    const porMatch = fullPath.match(/POR[/\\]([^/\\]+)/i);
+                    const upperName = name.toUpperCase();
+
+                    // ── 提取所有有效碼（用 - _ 分隔的 2-4 大寫字母 token） ──
+                    const allCodes = [];
+                    const tokens = upperName.replace(/\.[^.]+$/, '').split(/[-_]+/);
+                    for (const token of tokens) {
+                        const clean = token.replace(/\d.*$/, ''); // 去掉尾部數字 (如 WCA0606 → WCA)
+                        if (/^[A-Z]{2,4}$/.test(clean) && !EXCLUDE_SYSTEMS.has(clean)) {
+                            if (!allCodes.includes(clean)) allCodes.push(clean);
+                        }
+                        // 字母-數字交界 (如 WCA0606 → WCA)
+                        const codeMatch = token.match(/^([A-Z]{2,4})\d/);
+                        if (codeMatch && !EXCLUDE_SYSTEMS.has(codeMatch[1]) && !allCodes.includes(codeMatch[1])) {
+                            allCodes.push(codeMatch[1]);
+                        }
+                    }
+
+                    // ── 找出項目碼：如果第一個是 HGRH 則跳過，取第二個為項目 ──
+                    let projectIdx = 0;
+                    if (allCodes.length > 1 && allCodes[0] === 'HGRH') {
+                        projectIdx = 1;
+                    }
+                    const primarySystem = allCodes.length > projectIdx ? allCodes[projectIdx] : '';
+                    const systems = primarySystem ? [primarySystem] : [];
+                    // 項目之前的碼（如 HGRH）也歸入物料
+                    const beforeProject = allCodes.slice(0, projectIdx).filter(c => !EXCLUDE_SYSTEMS.has(c));
+                    // 項目之後的碼 = 物料
+                    const afterProject = allCodes.slice(projectIdx + 1).filter(c => !EXCLUDE_SYSTEMS.has(c));
+                    const materials = [...beforeProject, ...afterProject];
+
+                    // first system is the primary (first token that looks like a system code)
+                    const system = systems.length > 0 ? systems[0] : '';
+
+                    // ── POR 子目錄（跳過主目錄 01 POR ISAAC，取下一層） ──
+                    const porMatch = fullPath.match(/POR[/\\][^/\\]+[/\\]([^/\\]+)/i);
                     const por = porMatch ? porMatch[1] : '';
-                    // 同目錄下是否有對應的 TG 檔案
+
+                    // ── TG 檢測 ──
                     let hasTag = false;
-                    if (name.includes('_TG') || name.includes('-TG') || name.toUpperCase().includes('TAG')) {
-                        hasTag = true; // 自己是 TG，跳過
+                    if (name.includes('_TG') || name.includes('-TG') || upperName.includes('TAG')) {
+                        hasTag = true;
                     } else {
-                        // 找同目錄是否有含 TG 的檔案（主檔名相似）
                         try {
                             const dirEntries = fs.readdirSync(dirPath);
                             const base = path.basename(name, ext);
@@ -79,7 +120,9 @@ function scanDirectory(dirPath) {
                         name,
                         path: fullPath,
                         system,
+                        systems,
                         por,
+                        materials,
                         hasTag,
                     });
                 }
@@ -138,24 +181,58 @@ function loadIndex() {
 
 // ========== 搜尋 ==========
 
-/**
- * 搜尋圖紙（子字串匹配）
- * @returns {{ name, path, system, por, hasTag }[]}
- */
+/** 支援 * 通配符搜尋 */
 function searchDrawings(query) {
     const index = loadIndex();
     if (!index.length) return [];
 
-    const q = query.toUpperCase();
-    const results = index.filter((f) => f.name.toUpperCase().includes(q));
+    const q = query.trim().toUpperCase();
+    // 如果包含 *，轉為 regex；否則為 substring 匹配
+    let regex;
+    if (q.includes('*')) {
+        const pattern = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
+        regex = new RegExp(pattern, 'i');
+    }
+    return index.filter((f) => {
+        const name = f.name.toUpperCase();
+        if (regex) return regex.test(name);
+        return name.includes(q);
+    });
+}
 
-    return results;
+/** 從結果中提取出現的物料碼及其數量（使用索引中預提取的 materials 欄位） */
+function extractMaterialCodes(results) {
+    const codes = {};
+    for (const f of results) {
+        if (f.materials && f.materials.length) {
+            for (const code of f.materials) {
+                codes[code] = (codes[code] || 0) + 1;
+            }
+        }
+    }
+    const sorted = Object.entries(codes).sort((a, b) => b[1] - a[1]);
+    return sorted;
+}
+
+/** 從結果中提取出現的系統碼及其數量（使用索引中預提取的 systems 欄位） */
+function extractSystemCodes(results) {
+    const codes = {};
+    for (const f of results) {
+        const src = (f.systems && f.systems.length) ? f.systems : (f.system ? [f.system] : []);
+        for (const s of src) {
+            codes[s] = (codes[s] || 0) + 1;
+        }
+    }
+    const sorted = Object.entries(codes).sort((a, b) => b[1] - a[1]);
+    return sorted;
 }
 
 /** 取得同目錄的 TG 檔案 */
-function getTagFile(filePath) {
+/** 取得同目錄所有 TG 檔案 */
+function getTagFiles(filePath) {
     const dir = path.dirname(filePath);
     const base = path.basename(filePath, path.extname(filePath));
+    const results = [];
     try {
         const entries = fs.readdirSync(dir);
         for (const f of entries) {
@@ -164,27 +241,44 @@ function getTagFile(filePath) {
             if (f !== path.basename(filePath) &&
                 (upper.includes('_TG') || upper.includes('-TG') || upper.includes('TAG')) &&
                 (upper.includes(baseUpper) || baseUpper.includes(f.replace(/[_\-]TG.*$/i, '').replace(/\.[^.]+$/, '')))) {
-                return path.join(dir, f);
+                results.push(path.join(dir, f));
             }
+        }
+    } catch {}
+    return results;
+}
+
+function getTagFile(filePath) {
+    const files = getTagFiles(filePath);
+    return files.length > 0 ? files[0] : null;
+}
+
+/** 找同名但不同副檔名的檔案（如 PDF → DWG） */
+function findMatchingFile(filePath, targetExt) {
+    const dir = path.dirname(filePath);
+    const base = path.basename(filePath, path.extname(filePath));
+    const target = path.join(dir, base + targetExt);
+    if (fs.existsSync(target)) return target;
+    // 大小寫不敏感嘗試
+    try {
+        const entries = fs.readdirSync(dir);
+        const want = (base + targetExt).toUpperCase();
+        for (const f of entries) {
+            if (f.toUpperCase() === want) return path.join(dir, f);
         }
     } catch {}
     return null;
 }
 
-/** 判斷是否為 TG 檔案 */
-function isTagFile(filename) {
-    const upper = filename.toUpperCase();
-    return upper.includes('_TG') || upper.includes('-TG') || upper.includes('TAG');
-}
-
 // ========== SessionManager Handler ==========
+
+const MAX_RESULTS = 20;
 
 function makeDrawingSearchHandler() {
     return {
-        name: '圖紙搜尋',
+        name: 'Drawing 圖紙搜尋',
 
         async start(ctx) {
-            // 載入索引
             const index = loadIndex();
             if (!index.length) {
                 return {
@@ -193,181 +287,467 @@ function makeDrawingSearchHandler() {
                 };
             }
             ctx.index = index;
-
-            // 直接帶編號（如 #圖紙 ACB-421234），跳過輸入步驟
-            if (ctx._directQuery) {
-                const q = ctx._directQuery;
-                ctx._directQuery = null; // 清掉，避免 handleReply 再處理
-                const results = searchDrawings(q);
-
-                if (results.length === 0) {
-                    return { question: `❌ 找不到包含 "*${q}*" 的圖紙。\n請重新輸入編號：` };
-                }
-                if (results.length > 25) {
-                    ctx.step = 'filter_material';
-                    ctx.allResults = results;
-                    let question = `⚠️ 找到 *${results.length}* 個匹配結果。\n\n請選擇物料類型（1-11）：\n`;
-                    const codes = Object.keys(MATERIAL_CODES);
-                    codes.forEach((code, i) => {
-                        question += `${i + 1}. ${code} (${MATERIAL_CODES[code]})\n`;
-                    });
-                    question += '11. 顯示全部\n輸入 *#cancel* 取消';
-                    return { question };
-                }
-                return _showResults(ctx, results);
-            }
             ctx.step = 'input';
             return {
                 question:
-                    '📦 *圖紙搜尋*\n\n' +
-                    `📂 索引中共有 *${index.length}* 個圖紙檔案\n\n` +
-                    '請輸入貨品編號的任何部分（如 1234、CB-12、421）：\n\n' +
-                    '輸入 *#cancel* 取消',
+                    '📦 *Drawing 圖紙搜尋*\n\n' +
+                    `📂 索引中共有 *${index.length}* 個檔案\n\n` +
+                    '請輸入圖紙編號（支援 `*` 通配符）：\n' +
+                    '例如：`*FAC*123*`、`WCA-ACD-*`、`ACB`\n\n' +
+                    '輸入 `#cancel` 取消',
             };
         },
 
         async handleReply(ctx, replyMessage) {
-            const input = replyMessage.body.trim();
+            const rawInput = replyMessage.body.trim();
+            const input = rawInput.toUpperCase();
 
-            if (input === '#cancel') {
-                return { done: true, result: '❌ *圖紙搜尋已取消*' };
+            if (input === '#CANCEL') {
+                return { done: true, result: '❌ *Drawing 搜尋已取消*' };
             }
 
-            // 階段1：接收模糊輸入
+            // ── #R 返回上一層 ──
+            if (input === '#R') {
+                return _goBack(ctx);
+            }
+
+            // ── 階段1：模糊輸入 ──
             if (ctx.step === 'input') {
-                const results = searchDrawings(input);
+                if (!rawInput) {
+                    return { question: '❌ 請輸入圖紙編號（支援 * 通配符）。\n輸入 `#cancel` 取消。' };
+                }
+                const results = searchDrawings(rawInput);
 
                 if (results.length === 0) {
-                    return {
-                        question: `❌ 找不到包含 "*${input}*" 的圖紙。\n\n請重新輸入編號：`,
-                    };
+                    return { question: `❌ 找不到包含 "*${rawInput}*" 的圖紙。\n\n請重新輸入編號（#R 返回 / #cancel 取消）：` };
                 }
 
-                if (results.length > 25) {
-                    // 太多結果 → 問物料類型
-                    ctx.step = 'filter_material';
-                    ctx.allResults = results;
-                    let question = `⚠️ 找到 *${results.length}* 個匹配結果，太多！\n\n`;
-                    question += '請選擇物料類型縮小範圍（輸入編號）：\n\n';
-                    question += '*鐵料類:*\n1. FST 鐵料 | 2. FSS 不鏽鋼\n\n';
-                    question += '*鋁料類:*\n3. FAC 鋁板 | 4. FHA 鋁料加工件\n\n';
-                    question += '*五金類:*\n5. BBF 螺絲 | 6. FFA 防水片/收口角 | 7. BGK 墊塊\n\n';
-                    question += '*其他:*\n8. BOM 雜件/型材 | 9. FHU 加工組裝件 | 10. BGL 玻璃\n\n';
-                    question += '*全部顯示:* 11. 忽略篩選，顯示全部\n';
-                    question += '輸入 *#cancel* 取消';
-                    return { question };
-                }
+                ctx.allResults = results;
+                ctx.backStep = null;
 
-                // 顯示結果
-                return _showResults(ctx, results);
+                if (results.length > MAX_RESULTS) {
+                    ctx.backStep = 'input';
+                    return _askMaterialFilter(ctx, results);
+                }
+                ctx.backStep = 'input';
+                return _showPdfSelection(ctx, results);
             }
 
-            // 階段2：物料篩選
+            // ── 階段2：物料碼篩選 ──
             if (ctx.step === 'filter_material') {
-                const materialKeys = Object.keys(MATERIAL_CODES);
-                const num = parseInt(input, 10);
-
-                if (num === 11) {
-                    return _showResults(ctx, ctx.allResults);
+                if (input === '0') {
+                    ctx.backStep = 'filter_material';
+                    return _showSystemOrPdf(ctx, ctx.allResults);
                 }
 
-                if (num >= 1 && num <= 10) {
-                    const code = materialKeys[num - 1];
-                    const filtered = ctx.allResults.filter((f) => f.name.toUpperCase().includes(code));
-                    if (filtered.length === 0) {
-                        return { question: `❌ 沒有 ${code}(${MATERIAL_CODES[code]}) 類的匹配圖紙。\n請重新選擇物料類型：` };
-                    }
-                    return _showResults(ctx, filtered);
+                const idx = parseInt(input, 10) - 1;
+                if (isNaN(idx) || idx < 0 || idx >= ctx.materialCodes.length) {
+                    return { question: `❌ 請輸入 1-${ctx.materialCodes.length} 的數字，\`0\` 跳過篩選，\`#R\` 返回。` };
                 }
 
-                return { question: '❌ 請輸入 1-11 之間的數字。' };
+                const [code] = ctx.materialCodes[idx];
+                const filtered = ctx.allResults.filter((f) => f.materials && f.materials.includes(code));
+                ctx.filteredResults = filtered;
+                ctx.backStep = 'filter_material';
+                return _showSystemOrPdf(ctx, filtered);
             }
 
-            // 階段3：選擇圖紙
-            if (ctx.step === 'select') {
-                const num = parseInt(input, 10);
-                if (!num || num < 1 || num > ctx.shownResults.length) {
-                    return { question: `❌ 請輸入 1-${ctx.shownResults.length} 之間的數字。` };
+            // ── 階段3：系統碼（項目）篩選 ──
+            if (ctx.step === 'filter_system') {
+                if (input === '0') {
+                    ctx.backStep = 'filter_system';
+                    return _showPdfSelection(ctx, ctx.filteredResults);
                 }
 
-                const selected = ctx.shownResults[num - 1];
+                const idx = parseInt(input, 10) - 1;
+                if (isNaN(idx) || idx < 0 || idx >= ctx.systemCodes.length) {
+                    return { question: `❌ 請輸入 1-${ctx.systemCodes.length} 的數字，\`0\` 跳過篩選，\`#R\` 返回。` };
+                }
+
+                const [sysCode] = ctx.systemCodes[idx];
+                const filtered = ctx.filteredResults.filter((f) =>
+                    (f.systems && f.systems.includes(sysCode)) || f.system === sysCode
+                );
+                ctx.backStep = 'filter_system';
+                return _showPdfSelection(ctx, filtered);
+            }
+
+            // ── 階段4：選擇 PDF 圖紙 ──
+            if (ctx.step === 'select') {
+                const pageMatch = input.match(/^P(\d+)$/);
+                if (pageMatch) {
+                    const targetPage = parseInt(pageMatch[1], 10);
+                    const totalPages = Math.ceil(ctx.allPdfs.length / 10);
+                    if (targetPage < 1 || targetPage > totalPages) {
+                        return { question: `❌ 頁碼超出範圍（1-${totalPages}）。\n請輸入 \`p1\`-\`p${totalPages}\`，或 \`#R\` 返回。` };
+                    }
+                    return _showPdfSelection(ctx, ctx.allPdfs, targetPage);
+                }
+
+                const num = parseInt(input, 10);
+                if (isNaN(num) || num < 1 || num > ctx.allPdfs.length) {
+                    const extra = ctx.allPdfs.length > 10 ? `，\`p1\`-\`p${Math.ceil(ctx.allPdfs.length / 10)}\` 翻頁` : '';
+                    return { question: `❌ 請輸入 1-${ctx.allPdfs.length} 的數字${extra}，或 \`#R\` 返回。` };
+                }
+
+                const pageSize = 10;
+                const globalIndex = num - 1;
+                const currentPage = ctx.currentPage || 1;
+                const pageStart = (currentPage - 1) * pageSize;
+                const localIndex = globalIndex - pageStart;
+                if (localIndex < 0 || localIndex >= ctx.shownResults.length) {
+                    const targetPage = Math.floor(globalIndex / pageSize) + 1;
+                    return _showPdfSelection(ctx, ctx.allPdfs, targetPage);
+                }
+                const selected = ctx.shownResults[localIndex];
                 ctx.selectedFile = selected.path;
                 ctx.selectedName = selected.name;
-                ctx.step = 'ask_tag';
+                ctx.selectedPor = selected.por || '';
+                ctx.selectedSystem = selected.system || '';
+                ctx.selectedBase = path.basename(selected.name, path.extname(selected.name));
 
-                return {
-                    question:
-                        `✅ 已選擇: *${selected.name}*\n` +
-                        `🏢 POR: ${selected.por || '未知'}\n` +
-                        (selected.system ? `🔧 系統: ${selected.system}\n` : '') +
-                        `\n是否需要位置圖（Tag Drawing）？\n` +
-                        `回覆 \`y\` 一併發送位置圖\n` +
-                        `回覆 \`n\` 只發送加工圖`,
-                };
-            }
+                ctx.hasDwg = !!findMatchingFile(selected.path, '.dwg') || !!findMatchingFile(selected.path, '.DWG');
+                ctx.hasDxf = !ctx.hasDwg && (!!findMatchingFile(selected.path, '.dxf') || !!findMatchingFile(selected.path, '.DXF'));
 
-            // 階段4：是否發送 TG
-            if (ctx.step === 'ask_tag') {
-                const wantTag = ['y', 'yes', '是', '確認', 'ok'].includes(input.toLowerCase());
-                const files = [{ path: ctx.selectedFile, name: ctx.selectedName }];
+                let question = `✅ 已選擇 PDF: *${selected.name}*\n` +
+                    `🏢 POR: ${selected.por || '未知'}\n` +
+                    (selected.system ? `🔧 系統: ${selected.system}\n` : '') +
+                    `\n💡 輸入 \`#R\` 返回重新選擇`;
 
-                if (wantTag) {
-                    const tagFile = getTagFile(ctx.selectedFile);
-                    if (tagFile) {
-                        files.push({ path: tagFile, name: path.basename(tagFile) });
+                ctx.backStep = 'select';
+                if (ctx.hasDwg) {
+                    ctx.step = 'ask_dwg';
+                    question += `\n\n📎 發現同名 *.dwg* 加工圖\n需要一併發送 DWG 圖嗎？\n回覆 \`y\` 或 \`n\``;
+                } else if (ctx.hasDxf) {
+                    ctx.step = 'ask_dwg';
+                    question += `\n\n📎 發現同名 *.dxf* 加工圖\n需要一併發送 DXF 圖嗎？\n回覆 \`y\` 或 \`n\``;
+                } else {
+                    const tagFiles = getTagFiles(ctx.selectedFile);
+                    ctx.tagFiles = tagFiles;
+                    ctx.wantDwg = false;
+                    if (tagFiles.length > 0) {
+                        ctx.step = 'ask_tag';
+                        question += `\n\n沒有找到對應的 DWG/DXF 圖。\n需要位置圖（TG Drawing）嗎？\n回覆 \`y\` 或 \`n\``;
+                    } else {
+                        question += '\n\n沒有找到對應的 DWG/DXF 圖，也沒有相關的位置圖。';
+                        return _buildSendResult(ctx, []);
                     }
                 }
+                return { question };
+            }
 
-                ctx.filesToSend = files;
+            // ── 階段5：是否發送 DWG ──
+            if (ctx.step === 'ask_dwg') {
+                const isYes = ['Y', 'YES', '是', '確認', 'OK'].includes(input);
+                const isNo = ['N', 'NO'].includes(input);
+                if (!isYes && !isNo) {
+                    return { question: `❌ 請輸入 \`y\`（是）或 \`n\`（否），或 \`#R\` 返回。` };
+                }
 
-                let result = '📄 *圖紙發送中...*\n\n';
-                files.forEach((f, i) => {
-                    result += `${i + 1}. ${f.name}\n`;
-                });
+                ctx.wantDwg = isYes;
+                const tagFiles = getTagFiles(ctx.selectedFile);
+                ctx.tagFiles = tagFiles;
 
-                return {
-                    done: true,
-                    result,
-                    attachments: files.map((f) => f.path),
-                    attachmentCaption: files.map((f) => f.name).join(' + '),
-                };
+                ctx.backStep = 'ask_dwg';
+                if (tagFiles.length > 0) {
+                    ctx.step = 'ask_tag';
+                    return { question: `📎 此檔案所在 folder 內有 *${tagFiles.length}* 個 TG 位置圖\n需要選擇下載嗎？\n回覆 \`y\` 或 \`n\`，或 \`#R\` 返回` };
+                }
+                return _buildSendResult(ctx, []);
+            }
+
+            // ── 階段6：是否進入 TG 選擇 ──
+            if (ctx.step === 'ask_tag') {
+                const isYes = ['Y', 'YES', '是', '確認', 'OK'].includes(input);
+                const isNo = ['N', 'NO'].includes(input);
+                if (!isYes && !isNo) {
+                    return { question: `❌ 請輸入 \`y\`（是）或 \`n\`（否），或 \`#R\` 返回。` };
+                }
+
+                if (isYes && ctx.tagFiles && ctx.tagFiles.length > 0) {
+                    ctx.backStep = 'ask_tag';
+                    return _showTgSelection(ctx);
+                }
+
+                return _buildSendResult(ctx, isYes ? ctx.tagFiles : []);
+            }
+
+            // ── 階段7：TG 檔案選擇 ──
+            if (ctx.step === 'select_tg') {
+                return _handleTgSelection(ctx, input);
             }
 
             return { done: true, result: '❌ 未知步驟，搜尋已取消。' };
         },
 
         async onTimeout() {
-            return '⏰ *圖紙搜尋已超時*，請重新發起 `#圖紙`。';
+            return '⏰ *Drawing 搜尋已超時*，請重新發起 `#Drawing`。';
         },
 
         async onCancel() {
-            return '❌ *圖紙搜尋已取消*';
+            return '❌ *Drawing 搜尋已取消*';
         },
     };
 }
 
-function _showResults(ctx, results) {
-    ctx.step = 'select';
-    const maxShow = 10;
-    const shown = results.slice(0, maxShow);
-    ctx.shownResults = shown;
+// ── Helper: 系統碼（項目）篩選介面 ──
+function _askSystemFilter(ctx, results) {
+    ctx.step = 'filter_system';
+    const systemCodes = extractSystemCodes(results);
+    ctx.systemCodes = systemCodes;
 
-    let question = `🔍 找到 *${results.length}* 個匹配圖紙`;
-    if (results.length > maxShow) question += `（顯示前 ${maxShow} 個）`;
+    let question = `⚠️ 找到 *${results.length}* 個匹配結果（>${MAX_RESULTS}）\n\n`;
+    question += '*請選擇項目（系統碼）：*\n\n';
+
+    systemCodes.forEach(([code, count], i) => {
+        question += `${i + 1}. ${code} — ${count} 個\n`;
+    });
+    question += '\n輸入 `0` 跳過篩選\n輸入 `#cancel` 取消';
+
+    return { question };
+}
+
+// ── Helper: 物料碼篩選介面 ──
+function _askMaterialFilter(ctx, results) {
+    ctx.step = 'filter_material';
+    ctx.filteredResults = results;
+    const materialCodes = extractMaterialCodes(results);
+    ctx.materialCodes = materialCodes;
+
+    let question = `⚠️ 仍有 *${results.length}* 個結果（>${MAX_RESULTS}）\n\n`;
+    question += '*請選擇物料類型：*\n\n';
+
+    materialCodes.forEach(([code, count], i) => {
+        const label = MATERIAL_CODES[code];
+        question += `${i + 1}. ${code}${label ? ' ' + label : ''} — ${count} 個\n`;
+    });
+    question += '\n輸入 `0` 顯示全部\n輸入 `#cancel` 取消';
+
+    return { question };
+}
+
+// ── Helper: 物料篩選後 → 系統碼篩選或直接 PDF ──
+function _showSystemOrPdf(ctx, results) {
+    const systemCodes = extractSystemCodes(results);
+    if (results.length > MAX_RESULTS && systemCodes.length >= 2) {
+        return _askSystemFilter(ctx, results);
+    }
+    return _showPdfSelection(ctx, results);
+}
+
+// ── Helper: 顯示 PDF 選擇列表（支援分頁） ──
+function _showPdfSelection(ctx, results, page) {
+    ctx.step = 'select';
+    // 只顯示 PDF
+    const pdfs = results.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    ctx.allPdfs = pdfs;
+    const pageSize = 10;
+    const p = page || 1;
+    const totalPages = Math.ceil(pdfs.length / pageSize);
+    const start = (p - 1) * pageSize;
+    const shown = pdfs.slice(start, start + pageSize);
+    ctx.shownResults = shown;
+    ctx.currentPage = p;
+
+    let question = `🔍 找到 *${pdfs.length}* 個 PDF 圖紙`;
+    if (results.length > pdfs.length) {
+        question += `（另有 ${results.length - pdfs.length} 個 DWG/DXF 未顯示）`;
+    }
+    if (pdfs.length > pageSize) question += ` | 第 ${p}/${totalPages} 頁`;
     question += '：\n\n';
 
     shown.forEach((f, i) => {
-        question += `${i + 1}. *${f.name}*\n`;
-        question += `   🏢 ${f.por || '?'} | 🔧 ${f.system || '?'}\n`;
+        const num = start + i + 1;
+        question += `${num}. *${f.name}*\n`;
+        question += `   🏢 ${f.por || '--'} | 🔧 ${f.system || '--'}\n`;
     });
 
-    if (results.length > maxShow) {
-        question += `\n… 還有 ${results.length - maxShow} 個，請輸入更具體的編號`;
-    } else {
-        question += '\n請輸入數字選擇圖紙';
-    }
-    question += '\n\n輸入 *#cancel* 取消';
+    question += '\n請輸入數字選擇圖紙，或輸入';
+    if (p > 1) question += ` \`p${p-1}\` 上一頁`;
+    if (p < totalPages) question += ` \`p${p+1}\` 下一頁`;
+    question += '\n輸入 `#cancel` 取消';
     return { question };
+}
+
+// ── #R 返回上一層 ──
+function _goBack(ctx) {
+    const back = ctx.backStep;
+    if (!back || back === 'input') {
+        ctx.step = 'input';
+        ctx.backStep = null;
+        const index = loadIndex();
+        return {
+            question: '📦 *Drawing 圖紙搜尋*\n\n' +
+                `📂 索引中共有 *${index.length}* 個檔案\n\n` +
+                '請輸入圖紙編號（支援 `*` 通配符）：\n' +
+                '例如：`*FAC*123*`、`WCA-ACD-*`、`ACB`\n\n' +
+                '輸入 `#cancel` 取消',
+        };
+    }
+
+    ctx.step = back;
+
+    if (back === 'filter_material') {
+        return _askMaterialFilter(ctx, ctx.allResults);
+    }
+    if (back === 'filter_system') {
+        return _askSystemFilter(ctx, ctx.filteredResults);
+    }
+    if (back === 'select') {
+        return _showPdfSelection(ctx, ctx.allPdfs, ctx.currentPage || 1);
+    }
+    if (back === 'ask_dwg') {
+        let question = `✅ 已選擇 PDF: *${ctx.selectedName}*\n` +
+            `🏢 POR: ${ctx.selectedPor || '未知'}\n` +
+            (ctx.selectedSystem ? `🔧 系統: ${ctx.selectedSystem}\n` : '') +
+            `\n💡 輸入 \`#R\` 返回重新選擇`;
+        if (ctx.hasDwg) {
+            question += `\n\n📎 發現同名 *.dwg* 加工圖\n需要一併發送 DWG 圖嗎？\n回覆 \`y\` 或 \`n\``;
+        } else {
+            question += `\n\n📎 發現同名 *.dxf* 加工圖\n需要一併發送 DXF 圖嗎？\n回覆 \`y\` 或 \`n\``;
+        }
+        return { question };
+    }
+    if (back === 'ask_tag') {
+        if (ctx.tagFiles && ctx.tagFiles.length > 0) {
+            return { question: `📎 此檔案所在 folder 內有 *${ctx.tagFiles.length}* 個 TG 位置圖\n需要選擇下載嗎？\n回覆 \`y\` 或 \`n\`，或 \`#R\` 返回` };
+        }
+        return { question: `沒有找到對應的 TG 位置圖。\n回覆 \`y\` 發送檔案，\`n\` 取消` };
+    }
+
+    // fallback
+    ctx.step = 'input';
+    return { question: '❌ 無法返回，請重新輸入圖紙編號：' };
+}
+
+// ── TG 檔案選擇介面 ──
+function _showTgSelection(ctx) {
+    ctx.step = 'select_tg';
+    const tagFiles = ctx.tagFiles;
+    const pdfs = tagFiles.filter((f) => path.extname(f).toLowerCase() === '.pdf');
+    const dwgs = tagFiles.filter((f) => ['.dwg', '.dxf'].includes(path.extname(f).toLowerCase()));
+
+    let question = `📎 *TG 位置圖選擇*\n\n`;
+    let counter = 1;
+    ctx.tgFileMap = [];
+
+    if (pdfs.length > 0) {
+        question += `*PDF 檔案 (${pdfs.length} 個):*\n`;
+        for (const f of pdfs) {
+            const name = path.basename(f);
+            ctx.tgFileMap.push({ num: counter, path: f, name });
+            question += `${counter}. ${name}\n`;
+            counter++;
+        }
+        question += '\n';
+    }
+
+    if (dwgs.length > 0) {
+        question += `*DWG/DXF 檔案 (${dwgs.length} 個):*\n`;
+        for (const f of dwgs) {
+            const name = path.basename(f);
+            ctx.tgFileMap.push({ num: counter, path: f, name });
+            question += `${counter}. ${name}\n`;
+            counter++;
+        }
+        question += '\n';
+    }
+
+    question += '請選擇下載方式：\n';
+    question += `- \`all\` 下載全部 TG（${tagFiles.length} 個）\n`;
+    if (pdfs.length > 0) question += `- \`pdf\` 只下載全部 PDF（${pdfs.length} 個）\n`;
+    if (dwgs.length > 0) question += `- \`dwg\` 只下載全部 DWG/DXF（${dwgs.length} 個）\n`;
+    question += '- 輸入數字選擇（逗號分隔，如 `1,3,5`）\n';
+    question += '- `#R` 返回 | `#cancel` 取消';
+
+    return { question };
+}
+
+// ── 處理 TG 選擇 ──
+function _handleTgSelection(ctx, input) {
+    const tagFiles = ctx.tagFiles;
+
+    if (input === 'ALL') {
+        return _buildSendResult(ctx, tagFiles);
+    }
+
+    if (input === 'PDF') {
+        const pdfs = tagFiles.filter((f) => path.extname(f).toLowerCase() === '.pdf');
+        return _buildSendResult(ctx, pdfs);
+    }
+
+    if (input === 'DWG') {
+        const dwgs = tagFiles.filter((f) => ['.dwg', '.dxf'].includes(path.extname(f).toLowerCase()));
+        return _buildSendResult(ctx, dwgs);
+    }
+
+    // 數字選擇（逗號分隔）
+    const parts = input.split(/[,，\s]+/).filter(Boolean);
+    const nums = [];
+    for (const p of parts) {
+        const n = parseInt(p, 10);
+        if (isNaN(n)) {
+            return { question: `❌ 無法識別 "${p}"。\n請輸入數字、\`all\`、\`pdf\`、\`dwg\`，或 \`#R\` 返回。` };
+        }
+        nums.push(n);
+    }
+
+    if (nums.length === 0) {
+        return { question: `❌ 請輸入數字、\`all\`、\`pdf\`、\`dwg\`，或 \`#R\` 返回。` };
+    }
+
+    const selected = [];
+    const invalidNums = [];
+    for (const n of nums) {
+        const entry = ctx.tgFileMap.find((e) => e.num === n);
+        if (entry) {
+            selected.push(entry.path);
+        } else {
+            invalidNums.push(n);
+        }
+    }
+
+    if (invalidNums.length > 0) {
+        return { question: `❌ 編號 ${invalidNums.join(', ')} 無效。\n請輸入 1-${ctx.tgFileMap.length} 之間的數字，或 \`#R\` 返回。` };
+    }
+
+    if (selected.length === 0) {
+        return { question: `❌ 未選擇任何檔案。\n請輸入數字、\`all\`、\`pdf\`、\`dwg\`，或 \`#R\` 返回。` };
+    }
+
+    return _buildSendResult(ctx, selected);
+}
+
+// ── 構建最終發送結果 ──
+function _buildSendResult(ctx, tgPaths) {
+    const files = [{ path: ctx.selectedFile, name: ctx.selectedName }];
+
+    if (ctx.wantDwg) {
+        const dwgPath = findMatchingFile(ctx.selectedFile, '.dwg') || findMatchingFile(ctx.selectedFile, '.DWG');
+        if (dwgPath) files.push({ path: dwgPath, name: path.basename(dwgPath) });
+    }
+
+    const tgSet = new Set(Array.isArray(tgPaths) ? tgPaths : []);
+    for (const tp of tgSet) {
+        files.push({ path: tp, name: path.basename(tp) });
+    }
+
+    let result = '📄 *圖紙發送中...*\n';
+    if (ctx.selectedPor) {
+        result += `🏢 POR: ${ctx.selectedPor}\n`;
+    }
+    result += '\n';
+    files.forEach((f, i) => {
+        result += `${i + 1}. ${f.name}\n`;
+    });
+
+    return {
+        done: true,
+        result,
+        attachments: files.map((f) => f.path),
+        attachmentCaption: files.map((f) => f.name).join(' + '),
+        completionMessage: '✅ 已完成所有發送',
+    };
 }
 
 // ========== 自動重建（給 scheduler 用） ==========

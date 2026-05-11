@@ -1,4 +1,30 @@
 const path = require('path');
+const fs = require('fs');
+const mime = require('mime');
+
+// File extensions that WhatsApp doesn't support as media — send as documents instead
+const DOCUMENT_EXTENSIONS = new Set([
+    '.dwg', '.dxf', '.dgn', '.rvt', '.nwd', '.nwc', // CAD
+    '.xlsx', '.xls', '.csv', // Excel
+    '.doc', '.docx', // Word
+    '.zip', '.rar', '.7z', // Archives
+]);
+
+function _createMediaFromFile(filePath) {
+    const { MessageMedia } = require('whatsapp-web.js');
+    const b64data = fs.readFileSync(filePath, { encoding: 'base64' });
+    const filename = path.basename(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+
+    let mimetype = mime.getType(filePath);
+    // Fall back to octet-stream for types WhatsApp rejects
+    if (!mimetype || mimetype.startsWith('image/vnd.') || DOCUMENT_EXTENSIONS.has(ext)) {
+        mimetype = 'application/octet-stream';
+    }
+
+    const filesize = fs.statSync(filePath).size;
+    return new MessageMedia(mimetype, b64data, filename, filesize);
+}
 
 /**
  * 通用互動會話管理器（SessionManager）
@@ -235,8 +261,9 @@ class SessionManager {
                 const attachments = result.attachments || (result.attachment ? [result.attachment] : []);
                 for (const attPath of attachments) {
                     try {
-                        const { MessageMedia } = require('whatsapp-web.js');
-                        const media = MessageMedia.fromFilePath(attPath);
+                        // Normalize path: use forward slashes to avoid Windows issues
+                        const normalizedPath = attPath.replace(/\\/g, '/');
+                        const media = _createMediaFromFile(normalizedPath);
                         await client.sendMessage(session.originId, media, {
                             caption: attachments.length === 1
                                 ? (result.attachmentCaption || '📄 檔案')
@@ -247,6 +274,12 @@ class SessionManager {
                         console.error(`❌ [SessionManager] 發送附件失敗 (${attPath}):`, attErr.message);
                         await this._sendToOrigin(session.originId, `⚠️ 附件發送失敗: ${attErr.message}`, client);
                     }
+                }
+                // 發送完成訊息
+                if (result.completionMessage) {
+                    try {
+                        await this._sendToOrigin(session.originId, result.completionMessage, client);
+                    } catch {}
                 }
                 this.end(userId);
                 console.log(`✅ [SessionManager] ${handler.name} 完成，結果已發送到 ${session.originId}`);

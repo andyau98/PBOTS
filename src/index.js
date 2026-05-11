@@ -91,8 +91,8 @@ const client = new Client({
     authStrategy: new LocalAuth({ clientId: 'pbots-client' }),
     puppeteer: {
         headless: true,
-        executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
     },
 });
 

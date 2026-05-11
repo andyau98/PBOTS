@@ -45,7 +45,7 @@ function registerAll(router) {
     router.register('移除判頭', removeForemanHandler, { requireAuth: true, isHash: true });
 
     // ========== 物料圖紙命令 ==========
-    router.register('圖紙', drawingHandler, { requireAuth: true, isHash: true });
+    router.register('Drawing', drawingHandler, { requireAuth: true, isHash: true, aliases: ['圖紙'] });
     router.register('重建索引', rebuildIndexHandler, { requireAuth: true, isHash: true });
 }
 
@@ -652,16 +652,8 @@ async function drawingHandler(message, context, client, { sessionManager, config
     // 確保索引已載入
     loadIndex();
 
-    // 支援直接輸入： #圖紙 ACB-421234
-    const body = context.messageBody.replace(/^#圖紙\s*/i, '').trim();
-
     const handler = makeDrawingSearchHandler();
     const ctx = {};
-
-    // 如果直接帶了編號，跳過輸入步驟
-    if (body) {
-        ctx._directQuery = body;
-    }
 
     const result = await sessionManager.start(
         context.userId,
