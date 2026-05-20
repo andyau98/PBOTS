@@ -76,13 +76,15 @@ class MessageLogger {
             if (!fs.existsSync(filename)) return [];
             const content = fs.readFileSync(filename, 'utf8');
             const lines = content.trim().split('\n').filter(Boolean);
-            return lines.map((line) => {
-                try {
-                    return JSON.parse(line);
-                } catch {
-                    return null;
-                }
-            }).filter(Boolean);
+            return lines
+                .map((line) => {
+                    try {
+                        return JSON.parse(line);
+                    } catch {
+                        return null;
+                    }
+                })
+                .filter(Boolean);
         } catch (error) {
             console.error('❌ 讀取日誌檔案失敗:', error.message);
         }
@@ -100,7 +102,11 @@ class MessageLogger {
             const filename = this.getLogFilename();
 
             // JSONL：每行一條 JSON 記錄，直接附加寫入
-            fs.appendFileSync(filename, JSON.stringify(messageData) + '\n', 'utf8');
+            fs.appendFileSync(
+                filename,
+                JSON.stringify(messageData) + '\n',
+                'utf8'
+            );
 
             console.log(`📝 訊息已記錄到: ${filename}`);
             return messageData;

@@ -10,8 +10,8 @@ const CHINESE_FONT = (() => {
         if (os.platform() === 'darwin') {
             // .ttf 優先（pdfkit 對 .ttc 的 subset 支援有限）
             const candidates = [
-                '/Library/Fonts/Arial Unicode.ttf',          // .ttf，pdfkit 完全支援
-                '/System/Library/Fonts/STHeiti Light.ttc',   // .ttc 備用
+                '/Library/Fonts/Arial Unicode.ttf', // .ttf，pdfkit 完全支援
+                '/System/Library/Fonts/STHeiti Light.ttc', // .ttc 備用
                 '/System/Library/Fonts/Hiragino Sans GB.ttc',
                 '/System/Library/Fonts/PingFang.ttc',
             ];
@@ -24,14 +24,23 @@ const CHINESE_FONT = (() => {
         }
         // Windows
         const winFont = 'C:/Windows/Fonts/simhei.ttf';
-        if (fs.existsSync(winFont)) { console.log(`✅ 中文字體: ${winFont}`); return winFont; }
+        if (fs.existsSync(winFont)) {
+            console.log(`✅ 中文字體: ${winFont}`);
+            return winFont;
+        }
         // Linux
-        const linuxFont = '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc';
-        if (fs.existsSync(linuxFont)) { console.log(`✅ 中文字體: ${linuxFont}`); return linuxFont; }
+        const linuxFont =
+            '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc';
+        if (fs.existsSync(linuxFont)) {
+            console.log(`✅ 中文字體: ${linuxFont}`);
+            return linuxFont;
+        }
     } catch (e) {
         console.error('⚠️  字體偵測失敗:', e.message);
     }
-    console.warn('⚠️  未找到中文字體，PDF 將使用 Helvetica（中文可能無法顯示）');
+    console.warn(
+        '⚠️  未找到中文字體，PDF 將使用 Helvetica（中文可能無法顯示）'
+    );
     return null;
 })();
 
@@ -186,9 +195,10 @@ class ImageToPdf {
                     autoFirstPage: false,
                 });
 
-                const fontPath = (CHINESE_FONT && fs.existsSync(CHINESE_FONT))
-                    ? CHINESE_FONT
-                    : null;
+                const fontPath =
+                    CHINESE_FONT && fs.existsSync(CHINESE_FONT)
+                        ? CHINESE_FONT
+                        : null;
                 if (fontPath) {
                     doc.registerFont('CJK', fontPath);
                 }

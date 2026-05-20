@@ -43,7 +43,12 @@ try {
     }
 } catch (error) {
     console.error('❌ 載入配置檔案失敗:', error.message);
-    config = { bot: { prefix: '!' }, logging: { level: 'info' }, features: { reply_in_group: true }, message_logging: { enabled: true } };
+    config = {
+        bot: { prefix: '!' },
+        logging: { level: 'info' },
+        features: { reply_in_group: true },
+        message_logging: { enabled: true },
+    };
 }
 
 // ── 初始化核心 ──
@@ -130,10 +135,18 @@ client.on('ready', async () => {
     console.log('✅ PBOTS 機器人已準備就緒！');
     console.log(`🤖 機器人名稱: ${config.bot?.name || 'PBOTS'}`);
     console.log(`🔧 命令前綴: ${config.bot?.prefix || '!'}`);
-    console.log(`🔔 群組回覆: ${config.features?.reply_in_group ? '✅ 已啟用' : '❌ 已禁用'}`);
-    console.log(`📝 訊息日誌: ${config.message_logging?.enabled ? '✅ 已啟用' : '❌ 已禁用'}`);
-    console.log(`📥 媒體下載: ${config.media_download?.enabled ? '✅ 已啟用' : '❌ 已禁用'}`);
-    console.log(`🔐 白名單模式: ${config.security?.whitelist_enabled ? '✅ 已啟用' : '❌ 已禁用'}`);
+    console.log(
+        `🔔 群組回覆: ${config.features?.reply_in_group ? '✅ 已啟用' : '❌ 已禁用'}`
+    );
+    console.log(
+        `📝 訊息日誌: ${config.message_logging?.enabled ? '✅ 已啟用' : '❌ 已禁用'}`
+    );
+    console.log(
+        `📥 媒體下載: ${config.media_download?.enabled ? '✅ 已啟用' : '❌ 已禁用'}`
+    );
+    console.log(
+        `🔐 白名單模式: ${config.security?.whitelist_enabled ? '✅ 已啟用' : '❌ 已禁用'}`
+    );
     console.log(`👑 管理員數量: ${authManager.adminNumbers.size}`);
     console.log(`👥 授權群組: ${authManager.authorizedGroups.size}`);
 
@@ -175,10 +188,18 @@ async function getSenderInfo(message) {
     try {
         const contact = await message.getContact();
         // 保留 WhatsApp 原始 ID 格式（@c.us 或 @lid）
-        const rawId = contact.id?._serialized || contact.number || message.author || message.from;
+        const rawId =
+            contact.id?._serialized ||
+            contact.number ||
+            message.author ||
+            message.from;
         let phoneNumber = rawId;
         if (phoneNumber.includes('@')) phoneNumber = phoneNumber.split('@')[0];
-        return { pushname: contact.pushname || contact.name || 'Unknown', number: phoneNumber, whatsappId: rawId };
+        return {
+            pushname: contact.pushname || contact.name || 'Unknown',
+            number: phoneNumber,
+            whatsappId: rawId,
+        };
     } catch (error) {
         console.error('❌ 獲取發送者信息失敗:', error.message);
     }
@@ -242,7 +263,9 @@ client.on('message', async (message) => {
                 const parsedCmd = commandRouter.parseCommand(messageBody);
                 if (parsedCmd) {
                     // 如果是命令，提示用戶群組已被鎖定
-                    console.log(`⛔ 群組 ${message.from} 已被用戶 ${lockOwner} 鎖定，忽略 ${context.userId} 的命令: ${parsedCmd.command}`);
+                    console.log(
+                        `⛔ 群組 ${message.from} 已被用戶 ${lockOwner} 鎖定，忽略 ${context.userId} 的命令: ${parsedCmd.command}`
+                    );
                     // 不發送回覆，避免打亂群組
                 }
                 healthMonitor.recordMessage();
@@ -253,7 +276,11 @@ client.on('message', async (message) => {
         // ── 優先級 2：SessionManager 活躍會話攔截 ──
         // 如果用戶有進行中的互動會話，訊息路由到會話 handler
         if (sessionManager.hasActive(context.userId)) {
-            const handled = await sessionManager.routeMessage(context.userId, message, client);
+            const handled = await sessionManager.routeMessage(
+                context.userId,
+                message,
+                client
+            );
             if (handled) {
                 healthMonitor.recordMessage();
                 return;
@@ -262,7 +289,10 @@ client.on('message', async (message) => {
 
         // ── 優先級 3：自動媒體下載 ──
         if (message.hasMedia) {
-            const mediaResult = await mediaDownloader.downloadMedia(message, senderInfo.pushname);
+            const mediaResult = await mediaDownloader.downloadMedia(
+                message,
+                senderInfo.pushname
+            );
             if (mediaResult) {
                 await messageLogger.logMessage(message, {
                     ...context,
@@ -278,19 +308,33 @@ client.on('message', async (message) => {
 
         // 顯示接收到的訊息
         const mediaIcon = message.hasMedia ? '📎 ' : '';
-        console.log(`📩 ${sourcePrefix} ${senderInfo.pushname}: ${mediaIcon}${messageBody}`);
+        console.log(
+            `📩 ${sourcePrefix} ${senderInfo.pushname}: ${mediaIcon}${messageBody}`
+        );
 
         // ── 優先級 4：命令路由 ──
         // 群組回覆開關
         const parsed = commandRouter.parseCommand(messageBody);
-        if (parsed && isGroup && !config.features?.reply_in_group && parsed.command !== 'whitelist') {
+        if (
+            parsed &&
+            isGroup &&
+            !config.features?.reply_in_group &&
+            parsed.command !== 'whitelist'
+        ) {
             console.log(`⏸️ 群組回覆已禁用，忽略命令: ${parsed.command}`);
             return;
         }
 
-        const handled = await commandRouter.route(message, context, client, services);
+        const handled = await commandRouter.route(
+            message,
+            context,
+            client,
+            services
+        );
         if (handled && parsed) {
-            console.log(`✅ 已處理命令: ${parsed.command} 來自 ${context.userId}`);
+            console.log(
+                `✅ 已處理命令: ${parsed.command} 來自 ${context.userId}`
+            );
         }
     } catch (error) {
         errorRecovery.recordError(error, {

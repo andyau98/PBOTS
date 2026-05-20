@@ -37,5 +37,8 @@ Thumbs.db
 data/pdfs/
 data/images/
 
+# Tesseract language data (handled internally by tesseract.js)
+*.traineddata
+
 # PM2
 ecosystem.config.js

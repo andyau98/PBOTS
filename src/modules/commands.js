@@ -20,40 +20,81 @@ function registerAll(router) {
     router.register('help', helpHandler, { requireAuth: false });
     router.register('status', statusHandler, { requireAuth: false });
     router.register('stats', statsHandler, { requireAuth: false });
-    router.register('weather', weatherHandler, { requireAuth: false, aliases: ['天氣'] });
-    router.register('news', newsHandler, { requireAuth: false, aliases: ['新聞', 'construction', '地盤', 'monitor', '監控', 'accident', '意外'] });
+    router.register('weather', weatherHandler, {
+        requireAuth: false,
+        aliases: ['天氣'],
+    });
+    router.register('news', newsHandler, {
+        requireAuth: false,
+        aliases: [
+            '新聞',
+            'construction',
+            '地盤',
+            'monitor',
+            '監控',
+            'accident',
+            '意外',
+        ],
+    });
     router.register('whitelist', whitelistHandler, { requireAuth: false });
 
     // ========== Hash 命令 ==========
     router.register('topdf', topdfHandler, { requireAuth: true, isHash: true });
     router.register('done', doneHandler, { requireAuth: true, isHash: true });
-    router.register('cancel', cancelSessionHandler, { requireAuth: true, isHash: true });
+    router.register('cancel', cancelSessionHandler, {
+        requireAuth: true,
+        isHash: true,
+    });
 
     // ========== 管理員命令 ==========
     router.register('cleanup', cleanupHandler, { requireAuth: true });
     router.register('mediastats', mediastatsHandler, { requireAuth: true });
     router.register('security', securityHandler, { requireAuth: true });
-    router.register('cleanupwhitelist', cleanupWhitelistHandler, { requireAuth: true });
+    router.register('cleanupwhitelist', cleanupWhitelistHandler, {
+        requireAuth: true,
+    });
     router.register('addgroup', addGroupHandler, { requireAuth: true });
     router.register('removegroup', removeGroupHandler, { requireAuth: true });
 
     // ========== 考勤命令 ==========
     router.register('申報', reportHandler, { requireAuth: true, isHash: true });
-    router.register('今日人數', todayCountHandler, { requireAuth: true, isHash: true });
-    router.register('登記判頭', registerForemanHandler, { requireAuth: true, isHash: true });
-    router.register('判頭列表', listForemenHandler, { requireAuth: true, isHash: true });
-    router.register('移除判頭', removeForemanHandler, { requireAuth: true, isHash: true });
+    router.register('今日人數', todayCountHandler, {
+        requireAuth: true,
+        isHash: true,
+    });
+    router.register('登記判頭', registerForemanHandler, {
+        requireAuth: true,
+        isHash: true,
+    });
+    router.register('判頭列表', listForemenHandler, {
+        requireAuth: true,
+        isHash: true,
+    });
+    router.register('移除判頭', removeForemanHandler, {
+        requireAuth: true,
+        isHash: true,
+    });
 
     // ========== 物料圖紙命令 ==========
-    router.register('Drawing', drawingHandler, { requireAuth: true, isHash: true, aliases: ['圖紙'] });
-    router.register('重建索引', rebuildIndexHandler, { requireAuth: true, isHash: true });
+    router.register('Drawing', drawingHandler, {
+        requireAuth: true,
+        isHash: true,
+        aliases: ['圖紙'],
+    });
+    router.register('searchpor', rebuildIndexHandler, {
+        requireAuth: true,
+        isHash: true,
+        aliases: ['重建索引'],
+    });
 }
 
 // =====================================================================
 // 簡單命令（單步完成）
 // =====================================================================
 
-async function pingHandler(message) { await message.reply('pong'); }
+async function pingHandler(message) {
+    await message.reply('pong');
+}
 
 async function helpHandler(message, context, _client, { authManager }) {
     await message.reply(authManager.generateHelpMessage(context.userId));
@@ -62,14 +103,14 @@ async function helpHandler(message, context, _client, { authManager }) {
 async function statusHandler(message, _ctx, _client, { config, authManager }) {
     await message.reply(
         '🤖 *PBOTS 狀態*\n\n' +
-        `• 運行時間: ${new Date().toLocaleString()}\n` +
-        `• 群組回覆: ${config.features?.reply_in_group ? '✅ 已啟用' : '❌ 已禁用'}\n` +
-        `• 訊息日誌: ${config.message_logging?.enabled ? '✅ 已啟用' : '❌ 已禁用'}\n` +
-        `• 媒體下載: ${config.media_download?.enabled ? '✅ 已啟用' : '❌ 已禁用'}\n` +
-        `• 白名單模式: ${config.security?.whitelist_enabled ? '✅ 已啟用' : '❌ 已禁用'}\n` +
-        `• 管理員數量: ${authManager.adminNumbers.size}\n` +
-        `• 授權群組: ${authManager.authorizedGroups.size}\n` +
-        `• 版本: ${config.project?.version || '1.0.0'}`
+            `• 運行時間: ${new Date().toLocaleString()}\n` +
+            `• 群組回覆: ${config.features?.reply_in_group ? '✅ 已啟用' : '❌ 已禁用'}\n` +
+            `• 訊息日誌: ${config.message_logging?.enabled ? '✅ 已啟用' : '❌ 已禁用'}\n` +
+            `• 媒體下載: ${config.media_download?.enabled ? '✅ 已啟用' : '❌ 已禁用'}\n` +
+            `• 白名單模式: ${config.security?.whitelist_enabled ? '✅ 已啟用' : '❌ 已禁用'}\n` +
+            `• 管理員數量: ${authManager.adminNumbers.size}\n` +
+            `• 授權群組: ${authManager.authorizedGroups.size}\n` +
+            `• 版本: ${config.project?.version || '1.0.0'}`
     );
 }
 
@@ -98,7 +139,12 @@ async function cleanupHandler(message, _ctx, _client, { cleanupManager }) {
     }
 }
 
-async function cleanupWhitelistHandler(message, _ctx, _client, { authManager }) {
+async function cleanupWhitelistHandler(
+    message,
+    _ctx,
+    _client,
+    { authManager }
+) {
     try {
         const result = await authManager.resetAll();
         if (result.success) {
@@ -117,7 +163,9 @@ async function weatherHandler(message, _ctx, _client, { weatherReporter }) {
     await message.reply('🌤️ 正在獲取香港天氣資訊，請稍候...');
     try {
         const result = await weatherReporter.getCompleteWeatherReport();
-        await message.reply(result.success ? result.report : '❌ 獲取天氣資訊失敗，請稍後再試。');
+        await message.reply(
+            result.success ? result.report : '❌ 獲取天氣資訊失敗，請稍後再試。'
+        );
     } catch (error) {
         await message.reply(`❌ 天氣報告失敗: ${error.message}`);
     }
@@ -137,14 +185,24 @@ async function newsHandler(message, _ctx, _client, { newsReporter }) {
 // !whitelist — 支援 SessionManager 互動流程
 // =====================================================================
 
-async function whitelistHandler(message, context, client, { authManager, sessionManager }) {
+async function whitelistHandler(
+    message,
+    context,
+    client,
+    { authManager, sessionManager }
+) {
     const body = context.messageBody;
-    const parts = body.startsWith('!') ? body.slice(1).trim().split(/\s+/) : body.trim().split(/\s+/);
+    const parts = body.startsWith('!')
+        ? body.slice(1).trim().split(/\s+/)
+        : body.trim().split(/\s+/);
     const inlinePassword = parts.slice(1).join(' ');
 
     // ── 模式 1：內聯認證 `!whitelist <密碼>` ──
     if (inlinePassword) {
-        const result = authManager.authenticateDirect(context.userId, inlinePassword);
+        const result = authManager.authenticateDirect(
+            context.userId,
+            inlinePassword
+        );
         await message.reply(result.message);
         return;
     }
@@ -279,7 +337,11 @@ function _makePdfSessionHandler(imageToPdf) {
             if (input === '#cancel') {
                 // 清理暫存照片
                 if (ctx.photos) {
-                    ctx.photos.forEach((p) => { try { fs.unlinkSync(p.path); } catch {} });
+                    ctx.photos.forEach((p) => {
+                        try {
+                            fs.unlinkSync(p.path);
+                        } catch {}
+                    });
                 }
                 return { done: true, result: '❌ *PDF 收集已取消*' };
             }
@@ -303,20 +365,28 @@ function _makePdfSessionHandler(imageToPdf) {
             // 收集狀態 — 處理 #done
             if (ctx.state === 'collecting' && input === '#done') {
                 if (!ctx.photos || ctx.photos.length === 0) {
-                    return { question: '❌ 尚未收到任何照片，請先發送照片，或輸入 *#cancel* 取消。' };
+                    return {
+                        question:
+                            '❌ 尚未收到任何照片，請先發送照片，或輸入 *#cancel* 取消。',
+                    };
                 }
 
                 // 生成 PDF
                 try {
                     const tmpDir = path.join(imageToPdf.pdfPath, '.tmp');
-                    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+                    if (!fs.existsSync(tmpDir))
+                        fs.mkdirSync(tmpDir, { recursive: true });
 
                     // 使用 ImageToPdf 現有的 PDF 生成邏輯
                     const pdfResult = await _generatePdf(imageToPdf, ctx);
                     const title = ctx.title || 'PDF 報告';
 
                     // 清理暫存
-                    ctx.photos.forEach((p) => { try { fs.unlinkSync(p.path); } catch {} });
+                    ctx.photos.forEach((p) => {
+                        try {
+                            fs.unlinkSync(p.path);
+                        } catch {}
+                    });
 
                     return {
                         done: true,
@@ -329,7 +399,10 @@ function _makePdfSessionHandler(imageToPdf) {
                         attachmentCaption: `📄 ${title}`,
                     };
                 } catch (error) {
-                    return { done: true, result: `❌ PDF 生成失敗: ${error.message}` };
+                    return {
+                        done: true,
+                        result: `❌ PDF 生成失敗: ${error.message}`,
+                    };
                 }
             }
 
@@ -340,14 +413,24 @@ function _makePdfSessionHandler(imageToPdf) {
                     if (media) {
                         const buffer = Buffer.from(media.data, 'base64');
                         const caption = input || '';
-                        const fileName = replyMessage.filename || `photo_${Date.now()}.jpg`;
+                        const fileName =
+                            replyMessage.filename || `photo_${Date.now()}.jpg`;
 
                         const tmpDir = path.join(imageToPdf.pdfPath, '.tmp');
-                        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-                        const filePath = path.join(tmpDir, `${Date.now()}_${fileName}`);
+                        if (!fs.existsSync(tmpDir))
+                            fs.mkdirSync(tmpDir, { recursive: true });
+                        const filePath = path.join(
+                            tmpDir,
+                            `${Date.now()}_${fileName}`
+                        );
 
                         fs.writeFileSync(filePath, buffer);
-                        ctx.photos.push({ path: filePath, name: fileName, caption, size: buffer.length });
+                        ctx.photos.push({
+                            path: filePath,
+                            name: fileName,
+                            caption,
+                            size: buffer.length,
+                        });
 
                         return {
                             question:
@@ -373,14 +456,22 @@ function _makePdfSessionHandler(imageToPdf) {
 
         async onTimeout(ctx) {
             if (ctx.photos) {
-                ctx.photos.forEach((p) => { try { fs.unlinkSync(p.path); } catch {} });
+                ctx.photos.forEach((p) => {
+                    try {
+                        fs.unlinkSync(p.path);
+                    } catch {}
+                });
             }
             return '⏰ *PDF 收集會話已超時*\n請重新發起 #TOPDF 命令。';
         },
 
         async onCancel(ctx) {
             if (ctx.photos) {
-                ctx.photos.forEach((p) => { try { fs.unlinkSync(p.path); } catch {} });
+                ctx.photos.forEach((p) => {
+                    try {
+                        fs.unlinkSync(p.path);
+                    } catch {}
+                });
             }
             return '❌ *PDF 收集已取消*';
         },
@@ -392,10 +483,17 @@ async function _generatePdf(imageToPdf, ctx) {
     // 複用 ImageToPdf.createPdf 的核心邏輯
     // 注意：這裡需要訪問 createPdf 方法，但它是 instance method
     // 我們直接呼叫 imageToPdf 的內部方法
-    const pdfFileName = imageToPdf.generatePdfFileName(ctx.userId, ctx.title || 'document');
+    const pdfFileName = imageToPdf.generatePdfFileName(
+        ctx.userId,
+        ctx.title || 'document'
+    );
     const pdfFilePath = path.join(imageToPdf.pdfPath, pdfFileName);
 
-    await imageToPdf.createPdf(ctx.photos, ctx.title || 'PDF 報告', pdfFilePath);
+    await imageToPdf.createPdf(
+        ctx.photos,
+        ctx.title || 'PDF 報告',
+        pdfFilePath
+    );
 
     const stats = fs.statSync(pdfFilePath);
     return {
@@ -414,13 +512,20 @@ function _formatSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-async function topdfHandler(message, context, client, { imageToPdf, sessionManager }) {
+async function topdfHandler(
+    message,
+    context,
+    client,
+    { imageToPdf, sessionManager }
+) {
     const body = context.messageBody;
     const title = body.replace(/#TOPDF/i, '').trim();
 
     // 檢查用戶已有會話
     if (sessionManager.hasActive(context.userId)) {
-        await message.reply('❌ 您已有一個進行中的會話。請先完成或取消（#cancel）。');
+        await message.reply(
+            '❌ 您已有一個進行中的會話。請先完成或取消（#cancel）。'
+        );
         return;
     }
 
@@ -450,11 +555,18 @@ async function doneHandler(message, context, client, { sessionManager }) {
     if (sessionManager.hasActive(context.userId)) {
         await sessionManager.routeMessage(context.userId, message, client);
     } else {
-        await message.reply('❌ 您沒有進行中的 PDF 收集會話。\n請先用 #TOPDF [標題] 開始。');
+        await message.reply(
+            '❌ 您沒有進行中的 PDF 收集會話。\n請先用 #TOPDF [標題] 開始。'
+        );
     }
 }
 
-async function cancelSessionHandler(message, context, client, { sessionManager }) {
+async function cancelSessionHandler(
+    message,
+    context,
+    client,
+    { sessionManager }
+) {
     // #cancel 命令：取消用戶的活躍會話
     if (sessionManager.hasActive(context.userId)) {
         await sessionManager.cancel(context.userId, client);
@@ -469,15 +581,17 @@ async function cancelSessionHandler(message, context, client, { sessionManager }
 
 async function addGroupHandler(message, context, _client, { authManager }) {
     if (!context.groupId) {
-        await message.reply('❌ 此命令只能在群組中使用。\n請在欲授權的群組內發送 !addgroup。');
+        await message.reply(
+            '❌ 此命令只能在群組中使用。\n請在欲授權的群組內發送 !addgroup。'
+        );
         return;
     }
     authManager.addAuthorizedGroup(context.groupId);
     await message.reply(
         '✅ *群組已授權*\n\n' +
-        `📱 群組 ID: ${context.groupId}\n` +
-        `📋 群組名稱: ${context.groupName || '未知'}\n\n` +
-        '💡 此群組的所有成員現在擁有完整系統權限，無需個別認證。'
+            `📱 群組 ID: ${context.groupId}\n` +
+            `📋 群組名稱: ${context.groupName || '未知'}\n\n` +
+            '💡 此群組的所有成員現在擁有完整系統權限，無需個別認證。'
     );
 }
 
@@ -486,7 +600,9 @@ async function removeGroupHandler(message, context, _client, { authManager }) {
     const targetGroupId = parts[1] || context.groupId;
 
     if (!targetGroupId) {
-        await message.reply('❌ 請指定要移除的群組 ID。\n用法：!removegroup <groupId>\n或在群組內直接發送 !removegroup。');
+        await message.reply(
+            '❌ 請指定要移除的群組 ID。\n用法：!removegroup <groupId>\n或在群組內直接發送 !removegroup。'
+        );
         return;
     }
 
@@ -515,7 +631,7 @@ async function reportHandler(message, context, client, { sessionManager }) {
     if (!foreman) {
         await message.reply(
             '❌ 找不到您的判頭登記記錄。\n' +
-            '請管理員使用 `#登記判頭 [電話] [姓名] [公司] [Excel欄位]` 登記。'
+                '請管理員使用 `#登記判頭 [電話] [姓名] [公司] [Excel欄位]` 登記。'
         );
         return;
     }
@@ -551,7 +667,8 @@ async function todayCountHandler(message) {
     let text = '📊 *今日開工人數*\n\n';
     text += `📅 日期: ${new Date().toLocaleDateString('zh-HK')}\n\n`;
     for (const company of report.headerRow || []) {
-        const count = report.counts[company] !== undefined ? report.counts[company] : '-';
+        const count =
+            report.counts[company] !== undefined ? report.counts[company] : '-';
         text += `• *${company}*: ${count} 人\n`;
     }
     text += `\n👷 *總數: ${report.total} 人*`;
@@ -559,7 +676,12 @@ async function todayCountHandler(message) {
     await message.reply(text);
 }
 
-async function registerForemanHandler(message, context, client, { sessionManager }) {
+async function registerForemanHandler(
+    message,
+    context,
+    client,
+    { sessionManager }
+) {
     // 互動對話形式登記判頭
     // 自動擷取 WhatsApp ID，讓用戶從 Excel 欄位列表中選擇公司
     if (sessionManager.hasActive(context.userId)) {
@@ -633,13 +755,18 @@ const {
     loadIndex,
 } = require('../../skills/drawingSearch');
 
-async function drawingHandler(message, context, client, { sessionManager, config }) {
+async function drawingHandler(
+    message,
+    context,
+    client,
+    { sessionManager, config }
+) {
     // 檢查 POR 路徑
     const porPath = config.paths?.por;
     if (!porPath || !require('fs').existsSync(porPath)) {
         await message.reply(
             '❌ POR 資料夾路徑未設定或不存在。\n' +
-            '請管理員在 `configs/settings.json` 中設定 `paths.por`。'
+                '請管理員在 `configs/settings.json` 中設定 `paths.por`。'
         );
         return;
     }
@@ -679,11 +806,11 @@ async function rebuildIndexHandler(message, _context, _client, { config }) {
 
     await message.reply('🔄 正在重建圖紙索引，請稍候...');
     try {
-        const result = buildIndex(porPath);
+        const result = await buildIndex(porPath);
         await message.reply(
             '✅ *索引重建完成*\n\n' +
-            `📂 檔案數量: ${result.fileCount}\n` +
-            `⏱️ 耗時: ${result.elapsed} 秒`
+                `📂 檔案數量: ${result.fileCount}\n` +
+                `⏱️ 耗時: ${result.elapsed} 秒`
         );
     } catch (error) {
         await message.reply(`❌ 索引重建失敗: ${error.message}`);

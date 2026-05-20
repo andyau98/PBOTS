@@ -24,7 +24,6 @@ export default [
             'prettier/prettier': 'error',
             'no-unused-vars': 'warn',
             'no-console': 'warn',
-            indent: ['error', 4],
             quotes: ['error', 'single'],
             semi: ['error', 'always'],
         },

@@ -26,18 +26,18 @@ class MonitorServer {
             const url = new URL(req.url, `http://localhost:${this.port}`);
 
             switch (url.pathname) {
-            case '/':
-                this._servePage(res);
-                break;
-            case '/api/status':
-                this._serveApiStatus(res);
-                break;
-            case '/api/logs/stream':
-                this._serveSse(req, res);
-                break;
-            default:
-                res.writeHead(404);
-                res.end('Not Found');
+                case '/':
+                    this._servePage(res);
+                    break;
+                case '/api/status':
+                    this._serveApiStatus(res);
+                    break;
+                case '/api/logs/stream':
+                    this._serveSse(req, res);
+                    break;
+                default:
+                    res.writeHead(404);
+                    res.end('Not Found');
             }
         });
 
@@ -45,7 +45,9 @@ class MonitorServer {
         logStream.on('line', (line) => {
             const data = JSON.stringify(line);
             for (const client of this._sseClients) {
-                try { client.write(`data: ${data}\n\n`); } catch {}
+                try {
+                    client.write(`data: ${data}\n\n`);
+                } catch {}
             }
         });
 
@@ -54,8 +56,12 @@ class MonitorServer {
         });
     }
 
-    setQrDataUrl(dataUrl) { this._qrDataUrl = dataUrl; }
-    setReady(ready = true) { this._isReady = ready; }
+    setQrDataUrl(dataUrl) {
+        this._qrDataUrl = dataUrl;
+    }
+    setReady(ready = true) {
+        this._isReady = ready;
+    }
 
     stop() {
         if (this._server) this._server.close();
@@ -67,7 +73,7 @@ class MonitorServer {
         res.writeHead(200, {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
+            Connection: 'keep-alive',
             'Access-Control-Allow-Origin': '*',
         });
 
@@ -78,7 +84,9 @@ class MonitorServer {
         }
 
         this._sseClients.add(res);
-        req.on('close', () => { this._sseClients.delete(res); });
+        req.on('close', () => {
+            this._sseClients.delete(res);
+        });
     }
 
     // ========== Page ==========
@@ -96,9 +104,18 @@ class MonitorServer {
     // ========== API ==========
 
     _serveApiStatus(res) {
-        if (!this._services) { res.writeHead(503); return res.end(JSON.stringify({ error: '未初始化' })); }
+        if (!this._services) {
+            res.writeHead(503);
+            return res.end(JSON.stringify({ error: '未初始化' }));
+        }
 
-        const { authManager, sessionManager, messageLogger, healthMonitor, config } = this._services;
+        const {
+            authManager,
+            sessionManager,
+            messageLogger,
+            healthMonitor,
+            config,
+        } = this._services;
         const stats = messageLogger?.getTodayStats() || {};
         const health = healthMonitor?.getSystemStatus() || {};
         const security = authManager?.getSecurityStatus() || {};
@@ -116,7 +133,10 @@ class MonitorServer {
             heapUsed: Math.round(mem.heapUsed / 1024 / 1024),
             heapTotal: Math.round(mem.heapTotal / 1024 / 1024),
         };
-        const diskUsage = health.diskUsage || { directories: {}, formattedTotalSize: '0 B' };
+        const diskUsage = health.diskUsage || {
+            directories: {},
+            formattedTotalSize: '0 B',
+        };
 
         // 熱門發送者 Top 5
         const topSenders = Object.entries(stats.senders || {})
@@ -134,49 +154,63 @@ class MonitorServer {
             if (logFile) {
                 const logs = messageLogger.readExistingLogs(logFile);
                 const cmdCounts = {};
-                logs.forEach(log => {
+                logs.forEach((log) => {
                     if (log.type === 'command' && log.content) {
-                        const cmd = log.content.trim().split(/\s+/)[0].replace(/^[!#]/, '');
+                        const cmd = log.content
+                            .trim()
+                            .split(/\s+/)[0]
+                            .replace(/^[!#]/, '');
                         if (cmd) cmdCounts[cmd] = (cmdCounts[cmd] || 0) + 1;
                     }
                 });
                 Object.entries(cmdCounts)
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 6)
-                    .forEach(([cmd, count]) => topCommands.push({ cmd, count }));
+                    .forEach(([cmd, count]) =>
+                        topCommands.push({ cmd, count })
+                    );
             }
         } catch {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({
-            ready: this._isReady,
-            timestamp: new Date().toISOString(),
-            uptime: d + 'd ' + h + 'h ' + m + 'm',
-            stats: {
-                totalMessages: stats.totalMessages || 0,
-                groupMessages: stats.groupMessages || 0,
-                privateMessages: stats.privateMessages || 0,
-                commands: stats.commands || 0,
-                mediaMessages: stats.mediaMessages || 0,
-                typeBreakdown,
-                topCommands,
-                topSenders,
-            },
-            security: {
-                whitelistEnabled: security.whitelistEnabled,
-                adminCount: security.adminCount || 0,
-                blockedCount: security.blockedCount || 0,
-                authorizedGroupCount: security.authorizedGroupCount || 0,
-            },
-            health: {
-                messageCount: health.messageCount || 0,
-                errorCount: health.errorCount || 0,
-            },
-            system: { memory, diskUsage },
-            sessions: sessions.map(s => ({ userId: s.userId, handler: s.handler, step: s.step, elapsedSeconds: s.elapsedSeconds })),
-            commandPrefix: config?.bot?.prefix || '!',
-            version: config?.project?.version || '1.0.0',
-        }));
+        res.writeHead(200, {
+            'Content-Type': 'application/json; charset=utf-8',
+        });
+        res.end(
+            JSON.stringify({
+                ready: this._isReady,
+                timestamp: new Date().toISOString(),
+                uptime: d + 'd ' + h + 'h ' + m + 'm',
+                stats: {
+                    totalMessages: stats.totalMessages || 0,
+                    groupMessages: stats.groupMessages || 0,
+                    privateMessages: stats.privateMessages || 0,
+                    commands: stats.commands || 0,
+                    mediaMessages: stats.mediaMessages || 0,
+                    typeBreakdown,
+                    topCommands,
+                    topSenders,
+                },
+                security: {
+                    whitelistEnabled: security.whitelistEnabled,
+                    adminCount: security.adminCount || 0,
+                    blockedCount: security.blockedCount || 0,
+                    authorizedGroupCount: security.authorizedGroupCount || 0,
+                },
+                health: {
+                    messageCount: health.messageCount || 0,
+                    errorCount: health.errorCount || 0,
+                },
+                system: { memory, diskUsage },
+                sessions: sessions.map((s) => ({
+                    userId: s.userId,
+                    handler: s.handler,
+                    step: s.step,
+                    elapsedSeconds: s.elapsedSeconds,
+                })),
+                commandPrefix: config?.bot?.prefix || '!',
+                version: config?.project?.version || '1.0.0',
+            })
+        );
     }
 }
 
@@ -189,7 +223,9 @@ function buildPage(isReady, qrData) {
     const statusText = isReady ? '已連接' : '等待掃碼';
     const qrHidden = isReady ? 'hidden' : '';
     const dashHidden = isReady ? '' : 'hidden';
-    const qrImg = qrData ? `<img src="${qrData}" alt="QR Code">` : '<p>⏳ QR Code 生成中...</p>';
+    const qrImg = qrData
+        ? `<img src="${qrData}" alt="QR Code">`
+        : '<p>⏳ QR Code 生成中...</p>';
 
     return `<!DOCTYPE html>
 <html lang="zh-HK">

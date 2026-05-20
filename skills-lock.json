@@ -1,17 +1,17 @@
 {
-  "version": 1,
-  "skills": {
-    "integrate-whatsapp": {
-      "source": "gokapso/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/integrate-whatsapp/SKILL.md",
-      "computedHash": "b87c8500e7c9658eda41b3af4efee5ca4057ce49d6c0c40f71af0e5d0ea99d93"
-    },
-    "pdf-generator": {
-      "source": "jwynia/agent-skills",
-      "sourceType": "github",
-      "skillPath": "skills/general/document-processing/pdf/pdf-generator/SKILL.md",
-      "computedHash": "ffeb73b8dcf746e7dc58727d8bfbe0a0c738053154154bd2d3b2a4cd1213aa80"
+    "version": 1,
+    "skills": {
+        "integrate-whatsapp": {
+            "source": "gokapso/agent-skills",
+            "sourceType": "github",
+            "skillPath": "skills/integrate-whatsapp/SKILL.md",
+            "computedHash": "b87c8500e7c9658eda41b3af4efee5ca4057ce49d6c0c40f71af0e5d0ea99d93"
+        },
+        "pdf-generator": {
+            "source": "jwynia/agent-skills",
+            "sourceType": "github",
+            "skillPath": "skills/general/document-processing/pdf/pdf-generator/SKILL.md",
+            "computedHash": "ffeb73b8dcf746e7dc58727d8bfbe0a0c738053154154bd2d3b2a4cd1213aa80"
+        }
     }
-  }
 }

@@ -51,7 +51,10 @@ class CommandRouter {
 
         // 標準前綴命令
         if (body.startsWith(this.prefix)) {
-            const cmd = body.slice(this.prefix.length).split(' ')[0].toLowerCase();
+            const cmd = body
+                .slice(this.prefix.length)
+                .split(' ')[0]
+                .toLowerCase();
             if (cmd) return { command: cmd, isHash: false };
         }
 
@@ -79,7 +82,10 @@ class CommandRouter {
 
         // 權限檢查
         if (entry.requireAuth) {
-            const perm = this.authManager.checkPermission(context.userId, context.groupId);
+            const perm = this.authManager.checkPermission(
+                context.userId,
+                context.groupId
+            );
             if (!perm.hasFullAccess) {
                 await message.reply(
                     '🚫 權限不足！您無法使用此命令。\n使用 !whitelist 獲取管理員權限。'

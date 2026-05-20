@@ -4,10 +4,20 @@ const mime = require('mime');
 
 // File extensions that WhatsApp doesn't support as media — send as documents instead
 const DOCUMENT_EXTENSIONS = new Set([
-    '.dwg', '.dxf', '.dgn', '.rvt', '.nwd', '.nwc', // CAD
-    '.xlsx', '.xls', '.csv', // Excel
-    '.doc', '.docx', // Word
-    '.zip', '.rar', '.7z', // Archives
+    '.dwg',
+    '.dxf',
+    '.dgn',
+    '.rvt',
+    '.nwd',
+    '.nwc', // CAD
+    '.xlsx',
+    '.xls',
+    '.csv', // Excel
+    '.doc',
+    '.docx', // Word
+    '.zip',
+    '.rar',
+    '.7z', // Archives
 ]);
 
 function _createMediaFromFile(filePath) {
@@ -18,7 +28,11 @@ function _createMediaFromFile(filePath) {
 
     let mimetype = mime.getType(filePath);
     // Fall back to octet-stream for types WhatsApp rejects
-    if (!mimetype || mimetype.startsWith('image/vnd.') || DOCUMENT_EXTENSIONS.has(ext)) {
+    if (
+        !mimetype ||
+        mimetype.startsWith('image/vnd.') ||
+        DOCUMENT_EXTENSIONS.has(ext)
+    ) {
         mimetype = 'application/octet-stream';
     }
 
@@ -53,7 +67,14 @@ class SessionManager {
     /**
      * 建立新的互動會話
      */
-    create(userId, originId, handler, context = {}, timeout = null, senderId = null) {
+    create(
+        userId,
+        originId,
+        handler,
+        context = {},
+        timeout = null,
+        senderId = null
+    ) {
         // 強制結束舊會話
         if (this._sessions.has(userId)) {
             this._cancelQuiet(userId, '已被新會話取代');
@@ -66,7 +87,9 @@ class SessionManager {
             // 如果群組已被其他用戶鎖定，拒絕
             const existingOwner = this._groupLocks.get(originId);
             if (existingOwner && existingOwner !== userId) {
-                console.log(`⛔ 群組 ${originId} 已被用戶 ${existingOwner} 鎖定，拒絕 ${userId}`);
+                console.log(
+                    `⛔ 群組 ${originId} 已被用戶 ${existingOwner} 鎖定，拒絕 ${userId}`
+                );
                 return null;
             }
             this._groupLocks.set(originId, userId);
@@ -91,7 +114,9 @@ class SessionManager {
         };
 
         this._sessions.set(userId, session);
-        console.log(`📋 [SessionManager] 建立會話: ${handler.name} (用戶: ${userId}, 來源: ${originId}${isGroup ? ', 已鎖定群組' : ''})`);
+        console.log(
+            `📋 [SessionManager] 建立會話: ${handler.name} (用戶: ${userId}, 來源: ${originId}${isGroup ? ', 已鎖定群組' : ''})`
+        );
         return session;
     }
 
@@ -153,7 +178,9 @@ class SessionManager {
     end(userId) {
         const session = this._sessions.get(userId);
         if (session) {
-            console.log(`📋 [SessionManager] 結束會話: ${session.handler.name} (用戶: ${userId})`);
+            console.log(
+                `📋 [SessionManager] 結束會話: ${session.handler.name} (用戶: ${userId})`
+            );
             // 釋放群組鎖定
             if (session.isGroup) {
                 this._groupLocks.delete(session.originId);
@@ -168,7 +195,9 @@ class SessionManager {
     _cancelQuiet(userId, reason) {
         const session = this._sessions.get(userId);
         if (!session) return;
-        console.log(`📋 [SessionManager] 取消會話: ${session.handler.name} (${reason})`);
+        console.log(
+            `📋 [SessionManager] 取消會話: ${session.handler.name} (${reason})`
+        );
         if (session.isGroup) {
             this._groupLocks.delete(session.originId);
         }
@@ -229,10 +258,14 @@ class SessionManager {
             if (messageOriginId === session.originId) {
                 // 這是發起人在群組中發言 → 可能是在群組內回答（不推薦，但允許）
                 // 實際情況：群組觸發的會話，問答在私訊進行，群組訊息通常會被忽略
-                console.log(`⚠️ [SessionManager] 群組會話中，發起人 ${userId} 在群組發言，路由到會話`);
+                console.log(
+                    `⚠️ [SessionManager] 群組會話中，發起人 ${userId} 在群組發言，路由到會話`
+                );
             } else {
                 // 其他人在已鎖定的群組中發言 → 忽略
-                console.log(`⛔ [SessionManager] 群組 ${messageOriginId} 已被用戶 ${session.userId} 鎖定，忽略用戶 ${userId} 的訊息`);
+                console.log(
+                    `⛔ [SessionManager] 群組 ${messageOriginId} 已被用戶 ${session.userId} 鎖定，忽略用戶 ${userId} 的訊息`
+                );
                 return false; // 不攔截，讓訊息正常流動（不干擾會話）
             }
         }
@@ -255,51 +288,86 @@ class SessionManager {
                 // 發送最終結果到原始來源（群組或私訊）
                 // 先發送文字結果
                 if (result.result) {
-                    await this._sendToOrigin(session.originId, result.result, client);
+                    await this._sendToOrigin(
+                        session.originId,
+                        result.result,
+                        client
+                    );
                 }
                 // 如果有附件（單一或多個），一併發送
-                const attachments = result.attachments || (result.attachment ? [result.attachment] : []);
+                const attachments =
+                    result.attachments ||
+                    (result.attachment ? [result.attachment] : []);
                 for (const attPath of attachments) {
                     try {
                         // Normalize path: use forward slashes to avoid Windows issues
                         const normalizedPath = attPath.replace(/\\/g, '/');
                         const media = _createMediaFromFile(normalizedPath);
                         await client.sendMessage(session.originId, media, {
-                            caption: attachments.length === 1
-                                ? (result.attachmentCaption || '📄 檔案')
-                                : path.basename(attPath),
+                            caption:
+                                attachments.length === 1
+                                    ? result.attachmentCaption || '📄 檔案'
+                                    : path.basename(attPath),
                         });
-                        console.log(`📎 [SessionManager] 附件已發送: ${attPath}`);
+                        console.log(
+                            `📎 [SessionManager] 附件已發送: ${attPath}`
+                        );
                     } catch (attErr) {
-                        console.error(`❌ [SessionManager] 發送附件失敗 (${attPath}):`, attErr.message);
-                        await this._sendToOrigin(session.originId, `⚠️ 附件發送失敗: ${attErr.message}`, client);
+                        console.error(
+                            `❌ [SessionManager] 發送附件失敗 (${attPath}):`,
+                            attErr.message
+                        );
+                        await this._sendToOrigin(
+                            session.originId,
+                            `⚠️ 附件發送失敗: ${attErr.message}`,
+                            client
+                        );
                     }
                 }
                 // 發送完成訊息
                 if (result.completionMessage) {
                     try {
-                        await this._sendToOrigin(session.originId, result.completionMessage, client);
+                        await this._sendToOrigin(
+                            session.originId,
+                            result.completionMessage,
+                            client
+                        );
                     } catch {}
                 }
                 this.end(userId);
-                console.log(`✅ [SessionManager] ${handler.name} 完成，結果已發送到 ${session.originId}`);
+                console.log(
+                    `✅ [SessionManager] ${handler.name} 完成，結果已發送到 ${session.originId}`
+                );
             } else if (result.question) {
                 // Phase 7 確認回饋：先發送「✅ 收到: {用戶輸入}」，再發下一條問題
                 const userInput = message.body?.trim();
                 if (userInput && !message.hasMedia && userInput !== '#cancel') {
-                    await this._sendDM(userId, `✅ *收到:* ${userInput.substring(0, 100)}`, client);
+                    await this._sendDM(
+                        userId,
+                        `✅ *收到:* ${userInput.substring(0, 100)}`,
+                        client
+                    );
                 }
 
                 // 發送下一條問題到用戶私訊
                 await this._sendDM(userId, result.question, client);
-                console.log(`💬 [SessionManager] ${handler.name} 步驟 ${session.step}: 發送問題到 ${userId}`);
+                console.log(
+                    `💬 [SessionManager] ${handler.name} 步驟 ${session.step}: 發送問題到 ${userId}`
+                );
             }
 
             return true;
         } catch (error) {
-            console.error(`❌ [SessionManager] ${handler.name} 處理失敗:`, error.message);
+            console.error(
+                `❌ [SessionManager] ${handler.name} 處理失敗:`,
+                error.message
+            );
             try {
-                await this._sendDM(userId, `❌ 處理失敗: ${error.message}\n請重新開始。`, client);
+                await this._sendDM(
+                    userId,
+                    `❌ 處理失敗: ${error.message}\n請重新開始。`,
+                    client
+                );
             } catch {}
             this.end(userId);
             return true;
@@ -316,16 +384,30 @@ class SessionManager {
         context = context || {};
 
         // 建立會話（包含群組鎖定 + senderId 用於正確的 DM 格式）
-        const session = this.create(userId, originId, handler, context, timeout, senderId);
+        const session = this.create(
+            userId,
+            originId,
+            handler,
+            context,
+            timeout,
+            senderId
+        );
         if (!session) {
-            return { success: false, message: '❌ 此群組已有其他用戶正在進行互動會話，請稍後再試。' };
+            return {
+                success: false,
+                message: '❌ 此群組已有其他用戶正在進行互動會話，請稍後再試。',
+            };
         }
 
         const isGroup = originId.endsWith('@g.us');
 
         try {
             // 調用 handler.start()
-            const result = await handler.start(context, { userId, originId, isGroup });
+            const result = await handler.start(context, {
+                userId,
+                originId,
+                isGroup,
+            });
 
             if (!result) {
                 this.end(userId);
@@ -355,7 +437,10 @@ class SessionManager {
 
             return { success: true, isGroup: false, handled: true };
         } catch (error) {
-            console.error(`❌ [SessionManager] 啟動 ${handler.name} 失敗:`, error.message);
+            console.error(
+                `❌ [SessionManager] 啟動 ${handler.name} 失敗:`,
+                error.message
+            );
             this.end(userId);
             return { success: false, message: `啟動失敗: ${error.message}` };
         }
@@ -375,7 +460,11 @@ class SessionManager {
             target = userId;
         } else {
             // 根據 originId 推斷後綴
-            if (session && session.originId && session.originId.includes('@lid')) {
+            if (
+                session &&
+                session.originId &&
+                session.originId.includes('@lid')
+            ) {
                 target = userId + '@lid';
             } else {
                 target = userId + '@c.us';
@@ -385,7 +474,10 @@ class SessionManager {
         try {
             await client.sendMessage(target, text);
         } catch (error) {
-            console.error(`❌ [SessionManager] 發送私訊失敗 (${target}):`, error.message);
+            console.error(
+                `❌ [SessionManager] 發送私訊失敗 (${target}):`,
+                error.message
+            );
             throw error;
         }
     }
@@ -394,7 +486,10 @@ class SessionManager {
         try {
             await client.sendMessage(originId, text);
         } catch (error) {
-            console.error(`❌ [SessionManager] 發送到 ${originId} 失敗:`, error.message);
+            console.error(
+                `❌ [SessionManager] 發送到 ${originId} 失敗:`,
+                error.message
+            );
             throw error;
         }
     }

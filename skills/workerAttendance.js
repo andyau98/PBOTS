@@ -15,7 +15,13 @@ const { sessionManager } = require('../src/core/sessionManager');
 
 // ========== Excel 路徑 ==========
 
-const EXCEL_FILE = path.join(__dirname, '..', 'Sample', 'LabourSummary', 'HGRH開工人數表.xlsx');
+const EXCEL_FILE = path.join(
+    __dirname,
+    '..',
+    'Sample',
+    'LabourSummary',
+    'HGRH開工人數表.xlsx'
+);
 
 // ========== 判頭管理 ==========
 
@@ -33,7 +39,9 @@ function registerForeman(phone, name, company, groupId, excelColumn) {
     const existingIdx = foremen.findIndex((f) => f.phone === phone);
     if (existingIdx >= 0) {
         const removed = foremen.splice(existingIdx, 1)[0];
-        console.log(`🔄 用戶 ${phone} 重新登記: ${removed.company} → ${company}`);
+        console.log(
+            `🔄 用戶 ${phone} 重新登記: ${removed.company} → ${company}`
+        );
     }
     const id = 'foreman_' + Date.now();
     foremen.push({ id, name, phone, company, group: groupId, excelColumn });
@@ -70,7 +78,10 @@ async function findTodayCell() {
     if (!ws) {
         // 嘗試模糊匹配
         for (const sheet of wb.worksheets) {
-            if (sheet.name.trim() === monthStr) { ws = sheet; break; }
+            if (sheet.name.trim() === monthStr) {
+                ws = sheet;
+                break;
+            }
         }
     }
     if (!ws) {
@@ -88,19 +99,27 @@ async function findTodayCell() {
     // ---- 動態找出各欄位索引 ----
     // Excel 結構：日期欄 | 周 | 天氣 | 公司1 | 公司2... | 總數
     let headerRowNum = -1;
-    let weekCol = -1;      // 「周」欄（日期在其前一欄）
-    let dateCol = -1;      // 日期序號欄
-    let weatherCol = -1;   // 天氣欄
-    let totalCol = -1;     // 總數欄
+    let weekCol = -1; // 「周」欄（日期在其前一欄）
+    let dateCol = -1; // 日期序號欄
+    let weatherCol = -1; // 天氣欄
+    let totalCol = -1; // 總數欄
 
     ws.eachRow({ includeEmpty: true }, (row, rowNum) => {
         row.eachCell({ includeEmpty: true }, (cell, colNum) => {
             const val = String(cell.value || '').trim();
-            if (val === '周') { weekCol = colNum; dateCol = colNum - 1; }
+            if (val === '周') {
+                weekCol = colNum;
+                dateCol = colNum - 1;
+            }
             if (val === '天氣') weatherCol = colNum;
             if (val === '總數') totalCol = colNum;
         });
-        if (dateCol >= 0 && weatherCol >= 0 && totalCol >= 0 && headerRowNum === -1) {
+        if (
+            dateCol >= 0 &&
+            weatherCol >= 0 &&
+            totalCol >= 0 &&
+            headerRowNum === -1
+        ) {
             headerRowNum = rowNum;
         }
     });
@@ -125,8 +144,13 @@ async function findTodayCell() {
 
     // 若該行尚無日期，寫入日期／周
     const existingDate = ws.getCell(dataRowNum, dateCol).value;
-    if (!existingDate || (typeof existingDate === 'number' && existingDate < 1)) {
-        const todaySerial = Math.floor((now.getTime() - new Date(1899, 11, 30).getTime()) / 86400000);
+    if (
+        !existingDate ||
+        (typeof existingDate === 'number' && existingDate < 1)
+    ) {
+        const todaySerial = Math.floor(
+            (now.getTime() - new Date(1899, 11, 30).getTime()) / 86400000
+        );
         ws.getCell(dataRowNum, dateCol).value = todaySerial;
         ws.getCell(dataRowNum, weekCol).value = weekNames[now.getDay()];
     }
@@ -150,7 +174,15 @@ async function findTodayCell() {
  */
 async function writeWorkerCount(excelColumn, count) {
     const info = await findTodayCell();
-    const { sheetName, headerRow, dataRowNum, companyStartCol, totalCol, workbook, worksheet: ws } = info;
+    const {
+        sheetName,
+        headerRow,
+        dataRowNum,
+        companyStartCol,
+        totalCol,
+        workbook,
+        worksheet: ws,
+    } = info;
 
     // 動態找出公司欄位索引
     let colNum = -1;
@@ -166,7 +198,9 @@ async function writeWorkerCount(excelColumn, count) {
         for (let i = companyStartCol; i < totalCol; i++) {
             available.push(String(headerRow[i - 1] || '').trim());
         }
-        throw new Error(`找不到 Excel 欄位: "${excelColumn}" (可用: ${available.join(', ')})`);
+        throw new Error(
+            `找不到 Excel 欄位: "${excelColumn}" (可用: ${available.join(', ')})`
+        );
     }
 
     // 寫入工人數（保留原有格式）
@@ -177,27 +211,46 @@ async function writeWorkerCount(excelColumn, count) {
     for (let c = companyStartCol; c < totalCol; c++) {
         parts.push(`+${ws.getCell(dataRowNum, c).address}`);
     }
-    ws.getCell(dataRowNum, totalCol).value = { formula: parts.join('').replace(/^\+/, '') };
+    ws.getCell(dataRowNum, totalCol).value = {
+        formula: parts.join('').replace(/^\+/, ''),
+    };
 
     // 儲存（保留所有原有格式、樣式、合併儲存格）
     await workbook.xlsx.writeFile(EXCEL_FILE);
-    console.log(`📊 Excel 已更新: ${sheetName}, Row ${dataRowNum}, Col "${excelColumn}" = ${count}`);
+    console.log(
+        `📊 Excel 已更新: ${sheetName}, Row ${dataRowNum}, Col "${excelColumn}" = ${count}`
+    );
 
-    return { sheetName, row: dataRowNum, column: excelColumn, count, outputPath: EXCEL_FILE };
+    return {
+        sheetName,
+        row: dataRowNum,
+        column: excelColumn,
+        count,
+        outputPath: EXCEL_FILE,
+    };
 }
 
 /** 獲取今日已申報數據 */
 async function getTodayReport() {
     try {
         const info = await findTodayCell();
-        const { headerRow, dataRowNum, companyStartCol, totalCol, worksheet: ws } = info;
+        const {
+            headerRow,
+            dataRowNum,
+            companyStartCol,
+            totalCol,
+            worksheet: ws,
+        } = info;
 
         const counts = {};
         let calcTotal = 0;
         for (let c = companyStartCol; c < totalCol; c++) {
             const company = String(headerRow[c - 1] || '').trim();
             const val = ws.getCell(dataRowNum, c).value;
-            const num = (val !== undefined && val !== null && val !== '') ? (Number(val) || 0) : 0;
+            const num =
+                val !== undefined && val !== null && val !== ''
+                    ? Number(val) || 0
+                    : 0;
             if (company) {
                 counts[company] = num;
                 calcTotal += num;
@@ -205,7 +258,7 @@ async function getTodayReport() {
         }
         // 手動計算總數（公式 cell 讀取不直接給數字）
         const formulaVal = ws.getCell(dataRowNum, totalCol).value;
-        const total = (typeof formulaVal === 'number') ? formulaVal : calcTotal;
+        const total = typeof formulaVal === 'number' ? formulaVal : calcTotal;
         const companies = [];
         for (let c = companyStartCol; c < totalCol; c++) {
             companies.push(String(headerRow[c - 1] || '').trim());
@@ -251,9 +304,10 @@ function makeAttendanceHandler(foreman) {
 
             // 檢查今日是否已有申報記錄
             const today = await getTodayReport();
-            const existing = (today && today.counts[foreman.company] !== undefined)
-                ? today.counts[foreman.company]
-                : null;
+            const existing =
+                today && today.counts[foreman.company] !== undefined
+                    ? today.counts[foreman.company]
+                    : null;
             ctx.existingCount = existing;
 
             if (existing !== null) {
@@ -280,14 +334,24 @@ function makeAttendanceHandler(foreman) {
             const input = replyMessage.body.trim();
 
             if (input === '#cancel') {
-                return { done: true, result: `❌ *${foreman.company}* 考勤申報已取消` };
+                return {
+                    done: true,
+                    result: `❌ *${foreman.company}* 考勤申報已取消`,
+                };
             }
 
             // 等待確認階段
             if (ctx.waitingConfirm) {
-                if (['y', 'yes', '是', '確認', 'ok'].includes(input.toLowerCase())) {
+                if (
+                    ['y', 'yes', '是', '確認', 'ok'].includes(
+                        input.toLowerCase()
+                    )
+                ) {
                     try {
-                        const result = await writeWorkerCount(foreman.excelColumn, ctx.count);
+                        const result = await writeWorkerCount(
+                            foreman.excelColumn,
+                            ctx.count
+                        );
                         const isModify = ctx.existingCount !== null;
                         return {
                             done: true,
@@ -295,12 +359,18 @@ function makeAttendanceHandler(foreman) {
                                 `✅ *${isModify ? '已修改申報' : '已完成申報'}*\n\n` +
                                 `🏢 公司: *${foreman.company}*\n` +
                                 `👷 工人數: *${ctx.count} 人*` +
-                                (isModify ? ` (原: ${ctx.existingCount} 人)` : '') + `\n` +
+                                (isModify
+                                    ? ` (原: ${ctx.existingCount} 人)`
+                                    : '') +
+                                `\n` +
                                 `📅 日期: ${new Date().toLocaleDateString('zh-HK')}\n` +
                                 `📊 Excel: ${result.sheetName}`,
                         };
                     } catch (error) {
-                        return { done: true, result: `❌ Excel 寫入失敗: ${error.message}` };
+                        return {
+                            done: true,
+                            result: `❌ Excel 寫入失敗: ${error.message}`,
+                        };
                     }
                 }
 
@@ -327,7 +397,9 @@ function makeAttendanceHandler(foreman) {
             return {
                 question:
                     `✅ *收到: ${ctx.count} 人*\n\n` +
-                    (isModify ? `(原申報: ${ctx.existingCount} 人 → 修改為 ${ctx.count} 人)\n\n` : '') +
+                    (isModify
+                        ? `(原申報: ${ctx.existingCount} 人 → 修改為 ${ctx.count} 人)\n\n`
+                        : '') +
                     `確認 *${foreman.company}* 今日工人數為 *${ctx.count} 人*？\n\n` +
                     `回覆 \`y\` 確認並寫入 Excel\n` +
                     `回覆其他內容重新輸入人數`,
@@ -347,7 +419,9 @@ function makeAttendanceHandler(foreman) {
 // ========== 每日申報任務（由 scheduler 調用） ==========
 
 async function dailyAttendanceTask(client, foremen) {
-    console.log(`📋 [Attendance] 開始每日考勤申報，共 ${foremen.length} 位判頭`);
+    console.log(
+        `📋 [Attendance] 開始每日考勤申報，共 ${foremen.length} 位判頭`
+    );
     for (const foreman of foremen) {
         try {
             const handler = makeAttendanceHandler(foreman);
@@ -357,9 +431,14 @@ async function dailyAttendanceTask(client, foremen) {
             if (!originId.includes('@')) originId = originId + '@c.us';
 
             await sessionManager.start(userId, originId, handler, {}, client);
-            console.log(`📋 [Attendance] 已向 ${foreman.name}(${foreman.company}) 發送申報請求`);
+            console.log(
+                `📋 [Attendance] 已向 ${foreman.name}(${foreman.company}) 發送申報請求`
+            );
         } catch (error) {
-            console.error(`❌ [Attendance] 發送給 ${foreman.name} 失敗:`, error.message);
+            console.error(
+                `❌ [Attendance] 發送給 ${foreman.name} 失敗:`,
+                error.message
+            );
         }
     }
 }
@@ -428,10 +507,14 @@ function makeRegisterForemanHandler() {
             }
 
             if (ctx.step === 'confirm') {
-                if (['y', 'yes', '是', '確認', 'ok'].includes(input.toLowerCase())) {
+                if (
+                    ['y', 'yes', '是', '確認', 'ok'].includes(
+                        input.toLowerCase()
+                    )
+                ) {
                     const id = registerForeman(
-                        ctx.userId,           // 自動擷取 WhatsApp ID
-                        ctx.pushname || '',   // 自動擷取 WhatsApp 名稱
+                        ctx.userId, // 自動擷取 WhatsApp ID
+                        ctx.pushname || '', // 自動擷取 WhatsApp 名稱
                         ctx.company,
                         ctx.groupId || '',
                         ctx.excelColumn

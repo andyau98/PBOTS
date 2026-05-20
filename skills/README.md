@@ -48,7 +48,7 @@ router.register('命令名', handlerFunction, {
 
 ### 🔍 物料圖紙搜尋 (Drawing Search) ✅ 已實作
 
-- **命令**: `#圖紙 [編號]` / `#重建索引`
+- **命令**: `#圖紙 [編號]` / `#searchpor`
 - **功能**: 預建索引搜尋 POR 目錄，支援物料碼分類（FST=鐵料、FAC=鋁板…），凌晨 3:00 AM 自動重建
 - **數據**: `data/store/drawing_index.json`
 - **檔案**: `skills/drawingSearch.js`

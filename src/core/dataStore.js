@@ -47,7 +47,10 @@ class DataStore {
                 return JSON.parse(fs.readFileSync(filePath, 'utf8'));
             }
         } catch (error) {
-            console.error(`❌ DataStore 讀取失敗 (${filename}):`, error.message);
+            console.error(
+                `❌ DataStore 讀取失敗 (${filename}):`,
+                error.message
+            );
         }
         return defaultValue;
     }
@@ -61,7 +64,10 @@ class DataStore {
             fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
             return true;
         } catch (error) {
-            console.error(`❌ DataStore 寫入失敗 (${filename}):`, error.message);
+            console.error(
+                `❌ DataStore 寫入失敗 (${filename}):`,
+                error.message
+            );
             return false;
         }
     }
@@ -107,7 +113,11 @@ class DataStore {
     blockUser(userId, reason = '') {
         const blocked = this.getBlockedUsers();
         if (!blocked.find((b) => b.userId === userId)) {
-            blocked.push({ userId, reason, blockedAt: new Date().toISOString() });
+            blocked.push({
+                userId,
+                reason,
+                blockedAt: new Date().toISOString(),
+            });
             this._write('blocked.json', blocked);
         }
         return blocked;

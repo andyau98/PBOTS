@@ -24,7 +24,8 @@ class LogStream extends EventEmitter {
         this._started = true;
 
         const self = this;
-        const ts = () => new Date().toLocaleTimeString('zh-HK', { hour12: false });
+        const ts = () =>
+            new Date().toLocaleTimeString('zh-HK', { hour12: false });
 
         console.log = (...args) => {
             const line = { time: ts(), level: 'info', text: args.join(' ') };

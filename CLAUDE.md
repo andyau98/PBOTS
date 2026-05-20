@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 開發鐵律（所有新增功能必須遵循）
 
+### 規則 0：全部使用中文溝通
+
+與用戶嘅所有溝通（包括回覆、thinking、程式註解、訊息字串）**必須**使用繁體中文。唔好用英文。
+
 ### 規則 1：互動命令必須使用 SessionManager
 
 任何需要多步驟問答的工具（向用戶提問、收集資料、等待回覆），**必須**透過 `SessionManager` 實現，不得自行管理會話狀態。
@@ -25,7 +29,9 @@ Handler 標準介面：
 }
 ```
 
-啟動方式：`sessionManager.start(userId, originId, handler, context, client)`
+啟動方式：`sessionManager.start(userId, originId, handler, context, client, timeout, senderId)`
+
+- `senderId`：發送者嘅完整 WhatsApp ID（含 `@c.us` 或 `@lid` 後綴），用於正確格式嘅私訊發送。若省略則由 SessionManager 自動推斷
 
 ### 規則 2：所有可變數據必須透過 DataStore
 
@@ -42,17 +48,19 @@ data/exports/          →  統一輸出路徑（報表、備份、PDF）
 const { dataStore } = require('./core/dataStore');
 
 // 管理員
-dataStore.getAdmins() / dataStore.addAdmin(id) / dataStore.removeAdmin(id)
+dataStore.getAdmins() / dataStore.addAdmin(id) / dataStore.removeAdmin(id);
 
 // 封鎖
-dataStore.getBlockedUsers() / dataStore.blockUser(id, reason) / dataStore.unblockUser(id)
+dataStore.getBlockedUsers() /
+    dataStore.blockUser(id, reason) /
+    dataStore.unblockUser(id);
 
 // 通用擴展（新增數據類型不用改 DataStore）
-dataStore.set('key', value)
-dataStore.get('key', defaultValue)
+dataStore.set('key', value);
+dataStore.get('key', defaultValue);
 
 // 統一輸出
-dataStore.exportFile('filename', content)
+dataStore.exportFile('filename', content);
 ```
 
 ### 規則 3：命令必須透過 CommandRouter 登記
@@ -61,9 +69,9 @@ dataStore.exportFile('filename', content)
 
 ```js
 router.register('命令名', handler, {
-    requireAuth: true,           // 是否需要管理員權限
-    aliases: ['別名'],           // 可選別名
-    isHash: false,               // 是否為 # 開頭的 hash 命令
+    requireAuth: true, // 是否需要管理員權限
+    aliases: ['別名'], // 可選別名
+    isHash: false, // 是否為 # 開頭的 hash 命令
 });
 ```
 
@@ -83,12 +91,15 @@ Handler 簽名：`async (message, context, client, services) => void`
 **不可** `rm -rf .wwebjs_auth/`。只殺 Node 進程，保留已登入的 session：
 
 ```bash
-# ✅ 正確：優雅重啟
-pkill -f "node src/index"; sleep 2; node src/index.js
-
-# 若瀏覽器殘留，只移除鎖定檔（不刪 session）：
+# ✅ 正確：優雅重啟（Windows）
+taskkill //F //IM node.exe
+taskkill //F //IM chrome.exe
+# 只移除鎖定檔（不刪 session）：
 rm -f .wwebjs_auth/session-pbots-client/SingletonLock
 rm -f .wwebjs_auth/session-pbots-client/Default/SingletonLock
+npm start
+
+# 或使用 PBOTS.bat 一鍵重啟
 ```
 
 ---
@@ -97,6 +108,8 @@ rm -f .wwebjs_auth/session-pbots-client/Default/SingletonLock
 
 ```bash
 npm start              # 啟動機器人 (node src/index.js)
+node src/index.js      # 直接啟動（同 npm start）
+PBOTS.bat              # Windows 一鍵重啟（kill 舊進程 → 清鎖定檔 → 啟動）
 npm run lint           # ESLint 檢查
 npm run lint:fix       # ESLint 自動修復
 npm run format         # Prettier 格式化
@@ -132,8 +145,8 @@ npm start
 # 編輯 configs/settings.json → paths.por
 
 # 2. 若使用不同作業系統，檢查 Chrome 路徑
-# macOS 預設：/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
-# Windows 需在 src/index.js 修改 puppeteer.executablePath
+# Windows 預設：C:/Program Files/Google/Chrome/Application/chrome.exe
+# macOS 需改為：/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 
 # 3. 若沒有舊 WhatsApp session，掃 QR Code 重新登入即可
 ```
@@ -165,7 +178,7 @@ tools/
 ├── common/utils.js           # 共用工具函數
 ├── messageLogger.js          # JSONL 訊息日誌
 ├── mediaDownloader.js        # 自動下載媒體
-├── imageToPdf.js             # 照片→PDF（exceljs, Arial Unicode.ttf）
+├── imageToPdf.js             # 照片→PDF（pdfkit, simhei.ttf）
 ├── cleanup.js                # 舊檔案清理
 ├── healthMonitor.js          # 系統健康監控
 ├── errorRecovery.js          # 錯誤恢復（指數退避）
@@ -198,16 +211,16 @@ healthMonitor, errorRecovery, weatherReporter, newsReporter
 
 ### 排程任務
 
-| 時間 | 頻率 | 任務 |
-|------|------|------|
+| 時間    | 頻率     | 任務                                     |
+| ------- | -------- | ---------------------------------------- |
 | 9:00 AM | 週一至六 | 考勤申報（向已登記判頭發送私訊收集人數） |
-| 3:00 AM | 每日 | 重建圖紙索引（掃描 `paths.por` 目錄） |
+| 3:00 AM | 每日     | 重建圖紙索引（掃描 `paths.por` 目錄）    |
 
 時區固定為 `Asia/Hong_Kong`。
 
 ### 圖紙搜尋 (Drawing Search)
 
-`skills/drawingSearch.js` 使用**預建索引策略**：啟動時掃描 `config.paths.por` 目錄建立 `data/store/drawing_index.json`，後續查詢只讀索引不掃描檔案系統。索引支援物料碼前綴分類（FST=鐵料、FAC=鋁板、BGL=玻璃 等 10 類），並提供模糊匹配。凌晨 3:00 自動重建，管理員可手動 `#重建索引`。
+`skills/drawingSearch.js` 使用**預建索引策略**：啟動時掃描 `config.paths.por` 目錄建立 `data/store/drawing_index.json`，後續查詢只讀索引不掃描檔案系統。索引支援物料碼前綴分類（FST=鐵料、FAC=鋁板、BGL=玻璃 等 10 類），並提供模糊匹配。凌晨 3:00 自動重建，管理員可手動 `#searchpor`。
 
 ### 考勤模組 (Worker Attendance)
 
@@ -229,41 +242,41 @@ healthMonitor, errorRecovery, weatherReporter, newsReporter
 
 ### 完整命令列表
 
-| 命令 | 類別 | 權限 | 功能 |
-|------|------|------|------|
-| `!ping` | 基礎 | 公開 | 測試響應 |
-| `!help` | 基礎 | 公開 | 幫助訊息 |
-| `!status` | 基礎 | 公開 | 機器人狀態 |
-| `!stats` | 基礎 | 公開 | 今日統計 |
-| `!weather` / `!天氣` | 資訊 | 公開 | 香港天氣 |
-| `!news` / `!新聞` / `!地盤` / `!construction` / `!monitor` / `!監控` / `!accident` / `!意外` | 資訊 | 公開 | 地盤新聞 |
-| `!whitelist <密碼>` | 認證 | 公開 | 內聯認證 |
-| `!whitelist` | 認證 | 公開 | DM 認證流程 |
-| `#TOPDF [標題]` | PDF | 管理 | 照片收集→PDF |
-| `#done` | PDF | 管理 | 完成 PDF |
-| `#cancel` | 通用 | 管理 | 取消當前會話 |
-| `#申報` | 考勤 | 管理 | 申報今日人數（支援修改：重複觸發會顯示原有數字） |
-| `#今日人數` | 考勤 | 管理 | 查詢今日申報 |
-| `#登記判頭` | 考勤 | 管理 | 互動登記判頭 |
-| `#判頭列表` | 考勤 | 管理 | 列出判頭 |
-| `#移除判頭 [ID]` | 考勤 | 管理 | 移除判頭 |
-| `!security` | 管理 | 管理 | 安全狀態 |
-| `!cleanup` | 管理 | 管理 | 系統清理 |
-| `!mediastats` | 管理 | 管理 | 媒體統計 |
-| `!addgroup` | 管理 | 管理 | 授權群組 |
-| `!removegroup [ID]` | 管理 | 管理 | 移除授權 |
-| `!cleanupwhitelist` | 管理 | 管理 | 重置所有白名單數據 |
-| `#圖紙 [編號]` | 圖紙 | 管理 | 搜尋圖紙 (POR) |
-| `#重建索引` | 圖紙 | 管理 | 手動重建圖紙索引 |
+| 命令                                                                                         | 類別 | 權限 | 功能                                             |
+| -------------------------------------------------------------------------------------------- | ---- | ---- | ------------------------------------------------ |
+| `!ping`                                                                                      | 基礎 | 公開 | 測試響應                                         |
+| `!help`                                                                                      | 基礎 | 公開 | 幫助訊息                                         |
+| `!status`                                                                                    | 基礎 | 公開 | 機器人狀態                                       |
+| `!stats`                                                                                     | 基礎 | 公開 | 今日統計                                         |
+| `!weather` / `!天氣`                                                                         | 資訊 | 公開 | 香港天氣                                         |
+| `!news` / `!新聞` / `!地盤` / `!construction` / `!monitor` / `!監控` / `!accident` / `!意外` | 資訊 | 公開 | 地盤新聞                                         |
+| `!whitelist <密碼>`                                                                          | 認證 | 公開 | 內聯認證                                         |
+| `!whitelist`                                                                                 | 認證 | 公開 | DM 認證流程                                      |
+| `#TOPDF [標題]`                                                                              | PDF  | 管理 | 照片收集→PDF                                     |
+| `#done`                                                                                      | PDF  | 管理 | 完成 PDF                                         |
+| `#cancel`                                                                                    | 通用 | 管理 | 取消當前會話                                     |
+| `#申報`                                                                                      | 考勤 | 管理 | 申報今日人數（支援修改：重複觸發會顯示原有數字） |
+| `#今日人數`                                                                                  | 考勤 | 管理 | 查詢今日申報                                     |
+| `#登記判頭`                                                                                  | 考勤 | 管理 | 互動登記判頭                                     |
+| `#判頭列表`                                                                                  | 考勤 | 管理 | 列出判頭                                         |
+| `#移除判頭 [ID]`                                                                             | 考勤 | 管理 | 移除判頭                                         |
+| `!security`                                                                                  | 管理 | 管理 | 安全狀態                                         |
+| `!cleanup`                                                                                   | 管理 | 管理 | 系統清理                                         |
+| `!mediastats`                                                                                | 管理 | 管理 | 媒體統計                                         |
+| `!addgroup`                                                                                  | 管理 | 管理 | 授權群組                                         |
+| `!removegroup [ID]`                                                                          | 管理 | 管理 | 移除授權                                         |
+| `!cleanupwhitelist`                                                                          | 管理 | 管理 | 重置所有白名單數據                               |
+| `#圖紙 [編號]`                                                                               | 圖紙 | 管理 | 搜尋圖紙 (POR)                                   |
+| `#searchpor`                                                                                 | 圖紙 | 管理 | 手動重建圖紙索引                                 |
 
 ### WhatsApp 特定細節
 
 - 用戶 ID：`<電話號碼>@c.us`（私人）或 `<id>@g.us`（群組）或 `<id>@lid`（LID 格式）
-- SessionManager 在發送 DM 時會根據 originId 後綴自動推斷目標 ID 格式（`@c.us` vs `@lid`），見 `src/core/sessionManager.js:345`
+- SessionManager 在發送 DM 時會根據 originId 後綴自動推斷目標 ID 格式（`@c.us` vs `@lid`），見 `src/core/sessionManager.js` 嘅 `_sendDM()` 方法
 - `message.fromMe` 過濾自己的訊息
 - `message.downloadMedia()` → `{ data: base64, mimetype }`
-- 系統 Chrome 路徑：`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
-- 中文字體：`/Library/Fonts/Arial Unicode.ttf`（pdfkit 用，.ttf 優先於 .ttc）
+- 系統 Chrome 路徑（Windows）：`C:/Program Files/Google/Chrome/Application/chrome.exe`（見 `src/index.js` puppeteer 設定）
+- 中文字體（Windows）：`C:/Windows/Fonts/simhei.ttf`（pdfkit 用）
 
 ### 關鍵配置路徑
 

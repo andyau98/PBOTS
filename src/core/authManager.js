@@ -16,9 +16,12 @@ class AuthManager {
         this.whitelistEnabled = config.security?.whitelist_enabled !== false;
 
         // 認證密碼（從環境變數讀取，或從 settings.json 的靜態備份）
-        this.authPassword = process.env.AUTH_PASSWORD || config.security?.auth_password;
+        this.authPassword =
+            process.env.AUTH_PASSWORD || config.security?.auth_password;
         if (!this.authPassword || this.authPassword === '288365') {
-            console.warn('⚠️  警告：使用預設或不安全的密碼！請在 .env 檔案中設定 AUTH_PASSWORD');
+            console.warn(
+                '⚠️  警告：使用預設或不安全的密碼！請在 .env 檔案中設定 AUTH_PASSWORD'
+            );
         }
 
         // 私信認證會話管理
@@ -109,19 +112,40 @@ class AuthManager {
     checkPermission(userId, groupId = null) {
         // 封鎖檢查優先
         if (this.isBlocked(userId)) {
-            return { isAdmin: false, whitelistEnabled: this.whitelistEnabled, hasFullAccess: false, isBlocked: true };
+            return {
+                isAdmin: false,
+                whitelistEnabled: this.whitelistEnabled,
+                hasFullAccess: false,
+                isBlocked: true,
+            };
         }
         // 白名單關閉 → 所有人有權限
         if (!this.whitelistEnabled) {
-            return { isAdmin: this.isAdmin(userId), whitelistEnabled: false, hasFullAccess: true, isBlocked: false };
+            return {
+                isAdmin: this.isAdmin(userId),
+                whitelistEnabled: false,
+                hasFullAccess: true,
+                isBlocked: false,
+            };
         }
         // 管理員 → 完整權限
         if (this.isAdmin(userId)) {
-            return { isAdmin: true, whitelistEnabled: true, hasFullAccess: true, isBlocked: false };
+            return {
+                isAdmin: true,
+                whitelistEnabled: true,
+                hasFullAccess: true,
+                isBlocked: false,
+            };
         }
         // 授權群組成員 → 完整權限（群組內所有人自動獲得管理員權限）
         if (groupId && dataStore.getAuthorizedGroups().includes(groupId)) {
-            return { isAdmin: false, whitelistEnabled: true, hasFullAccess: true, isBlocked: false, authorizedByGroup: true };
+            return {
+                isAdmin: false,
+                whitelistEnabled: true,
+                hasFullAccess: true,
+                isBlocked: false,
+                authorizedByGroup: true,
+            };
         }
         return {
             isAdmin: false,
@@ -135,7 +159,10 @@ class AuthManager {
 
     authenticateDirect(userId, password) {
         if (!this.authPassword) {
-            return { success: false, message: '❌ 系統未設定認證密碼，請聯繫管理員。' };
+            return {
+                success: false,
+                message: '❌ 系統未設定認證密碼，請聯繫管理員。',
+            };
         }
         if (password === this.authPassword) {
             this.addAdmin(userId);
@@ -150,7 +177,10 @@ class AuthManager {
             };
         }
         console.log(`❌ ${userId} 內聯認證失敗：密碼錯誤`);
-        return { success: false, message: '❌ *密碼錯誤*\n\n請確認密碼後重試。' };
+        return {
+            success: false,
+            message: '❌ *密碼錯誤*\n\n請確認密碼後重試。',
+        };
     }
 
     // ========== 私信認證會話 ==========
@@ -168,9 +198,19 @@ class AuthManager {
     async startPrivateSession(userId, originId, client) {
         try {
             if (this.hasActiveSession(userId)) {
-                return { success: false, message: '您已經有一個活躍的認證會話，請檢查私訊。' };
+                return {
+                    success: false,
+                    message: '您已經有一個活躍的認證會話，請檢查私訊。',
+                };
             }
-            const sessionData = { userId, originId, startTime: Date.now(), step: 'ask_password', attempts: 0, maxAttempts: 3 };
+            const sessionData = {
+                userId,
+                originId,
+                startTime: Date.now(),
+                step: 'ask_password',
+                attempts: 0,
+                maxAttempts: 3,
+            };
             this.activeSessions.set(userId, sessionData);
 
             const question =
@@ -179,17 +219,27 @@ class AuthManager {
 
             await this._sendPrivateMessage(userId, question, client);
             console.log(`🔐 已向 ${userId} 發起私信認證會話`);
-            return { success: true, message: '已向您發送私信，請檢查私訊並輸入認證密碼。' };
+            return {
+                success: true,
+                message: '已向您發送私信，請檢查私訊並輸入認證密碼。',
+            };
         } catch (error) {
             console.error('❌ 開始私信會話失敗:', error.message);
-            return { success: false, message: '無法發起私信認證，請稍後再試。' };
+            return {
+                success: false,
+                message: '無法發起私信認證，請稍後再試。',
+            };
         }
     }
 
     async handlePrivateReply(userId, message, client) {
         try {
             if (!this.hasActiveSession(userId)) {
-                await this._sendPrivateMessage(userId, '❌ 沒有活躍的認證會話，請重新發起認證。', client);
+                await this._sendPrivateMessage(
+                    userId,
+                    '❌ 沒有活躍的認證會話，請重新發起認證。',
+                    client
+                );
                 return { success: false, message: '無活躍會話' };
             }
             const session = this.activeSessions.get(userId);
@@ -207,20 +257,42 @@ class AuthManager {
 
                 await this._sendPrivateMessage(userId, successMsg, client);
                 if (session.originId.endsWith('@g.us')) {
-                    try { await client.sendMessage(session.originId, `✅ *認證成功通知*\n\n用戶 ${userId} 已成功通過管理員認證\n現已擁有完整系統權限`); } catch {}
+                    try {
+                        await client.sendMessage(
+                            session.originId,
+                            `✅ *認證成功通知*\n\n用戶 ${userId} 已成功通過管理員認證\n現已擁有完整系統權限`
+                        );
+                    } catch {}
                 }
                 console.log(`✅ ${userId} 認證成功`);
-                return { success: true, message: '認證成功', userId, originId: session.originId };
+                return {
+                    success: true,
+                    message: '認證成功',
+                    userId,
+                    originId: session.originId,
+                };
             }
 
             const remainingAttempts = session.maxAttempts - session.attempts;
             if (remainingAttempts > 0) {
-                await this._sendPrivateMessage(userId, `❌ *密碼錯誤*\n\n您還有 ${remainingAttempts} 次嘗試機會\n請重新輸入認證密碼：`, client);
-                return { success: false, message: '密碼錯誤', remainingAttempts };
+                await this._sendPrivateMessage(
+                    userId,
+                    `❌ *密碼錯誤*\n\n您還有 ${remainingAttempts} 次嘗試機會\n請重新輸入認證密碼：`,
+                    client
+                );
+                return {
+                    success: false,
+                    message: '密碼錯誤',
+                    remainingAttempts,
+                };
             }
 
             this.activeSessions.delete(userId);
-            await this._sendPrivateMessage(userId, '❌ *認證失敗*\n\n您已達到最大嘗試次數\n認證會話已結束\n💡 如需再次認證，請重新發起 !whitelist 命令', client);
+            await this._sendPrivateMessage(
+                userId,
+                '❌ *認證失敗*\n\n您已達到最大嘗試次數\n認證會話已結束\n💡 如需再次認證，請重新發起 !whitelist 命令',
+                client
+            );
             console.log(`❌ ${userId} 認證失敗（達到最大嘗試次數）`);
             return { success: false, message: '認證失敗' };
         } catch (error) {
@@ -232,8 +304,16 @@ class AuthManager {
     getSessionStatus(userId) {
         if (!this.hasActiveSession(userId)) return null;
         const session = this.activeSessions.get(userId);
-        const remainingTime = this.sessionTimeout - (Date.now() - session.startTime);
-        return { userId: session.userId, originId: session.originId, step: session.step, attempts: session.attempts, maxAttempts: session.maxAttempts, remainingMinutes: Math.ceil(remainingTime / 60000) };
+        const remainingTime =
+            this.sessionTimeout - (Date.now() - session.startTime);
+        return {
+            userId: session.userId,
+            originId: session.originId,
+            step: session.step,
+            attempts: session.attempts,
+            maxAttempts: session.maxAttempts,
+            remainingMinutes: Math.ceil(remainingTime / 60000),
+        };
     }
 
     // ========== 動態幫助訊息 ==========
@@ -265,7 +345,7 @@ class AuthManager {
 
         text += '\n*📦 圖紙:*\n';
         text += '• #Drawing - 搜尋加工圖\n';
-        text += '• #重建索引 - 重建圖紙索引\n';
+        text += '• #searchpor - 重建圖紙索引\n';
 
         if (permission.hasFullAccess) {
             text += '\n*👑 管理:*\n';
@@ -315,14 +395,18 @@ class AuthManager {
         const admins = dataStore.getAdmins();
         if (admins.length > 0) {
             text += '👑 *管理員列表*\n';
-            admins.forEach((admin) => { text += `• ${admin}\n`; });
+            admins.forEach((admin) => {
+                text += `• ${admin}\n`;
+            });
             text += '\n';
         }
 
         const blocked = dataStore.getBlockedUsers();
         if (blocked.length > 0) {
             text += '🚫 *已封鎖用戶*\n';
-            blocked.forEach((b) => { text += `• ${b.userId} (${b.reason || '無原因'})\n`; });
+            blocked.forEach((b) => {
+                text += `• ${b.userId} (${b.reason || '無原因'})\n`;
+            });
             text += '\n';
         }
 
@@ -340,10 +424,18 @@ class AuthManager {
     // ========== 未授權訪問記錄 ==========
 
     logUnauthorizedAccess(userId, groupId, command) {
-        const attempt = { timestamp: new Date().toISOString(), userId, groupId, command, type: groupId ? 'Group' : 'Private' };
+        const attempt = {
+            timestamp: new Date().toISOString(),
+            userId,
+            groupId,
+            command,
+            type: groupId ? 'Group' : 'Private',
+        };
         this.unauthorizedAttempts.push(attempt);
         if (this.unauthorizedAttempts.length > this.maxAttemptsLog) {
-            this.unauthorizedAttempts = this.unauthorizedAttempts.slice(-this.maxAttemptsLog);
+            this.unauthorizedAttempts = this.unauthorizedAttempts.slice(
+                -this.maxAttemptsLog
+            );
         }
         console.log(`🚫 未授權訪問: ${userId} → ${command || 'N/A'}`);
     }
@@ -351,7 +443,9 @@ class AuthManager {
     cleanupOldRecords(daysToKeep = 30) {
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - daysToKeep);
-        this.unauthorizedAttempts = this.unauthorizedAttempts.filter((a) => new Date(a.timestamp) >= cutoff);
+        this.unauthorizedAttempts = this.unauthorizedAttempts.filter(
+            (a) => new Date(a.timestamp) >= cutoff
+        );
     }
 
     // ========== 重置 ==========
@@ -362,7 +456,10 @@ class AuthManager {
         this.unauthorizedAttempts = [];
         dataStore.resetAll();
         console.log('✅ 權限系統已重置');
-        return { success: true, message: '所有權限數據已清空，系統回到初始狀態' };
+        return {
+            success: true,
+            message: '所有權限數據已清空，系統回到初始狀態',
+        };
     }
 
     // ========== 內部：發送私信 ==========
