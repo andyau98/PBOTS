@@ -1446,9 +1446,8 @@ function makeDrawingSearchHandler() {
                     question +=
                         '\n\n📎 發現同名 *.dxf* 加工圖\n需要一併發送 DXF 圖嗎？\n回覆 `y` 或 `n`';
                 } else {
-                    // 無 DWG/DXF → 自動掃描 TG 位置圖（同目錄 + ACD→TG 對照表）
-                    const tgTargets = extractDrawingNumbers(ctx.selectedBase);
-                    const tagFiles = resolveTgFiles(ctx.selectedFile, tgTargets);
+                    // 無 DWG/DXF → 自動掃描 TG 位置圖（同目錄 OCR）
+                    const tagFiles = getTagFiles(ctx.selectedFile);
                     ctx.tagFiles = tagFiles;
                     ctx.wantDwg = false;
                     if (tagFiles.length > 0) {
@@ -1471,8 +1470,7 @@ function makeDrawingSearchHandler() {
                 }
 
                 ctx.wantDwg = isYes;
-                const tgTargets = extractDrawingNumbers(ctx.selectedBase);
-                const tagFiles = resolveTgFiles(ctx.selectedFile, tgTargets);
+                const tagFiles = getTagFiles(ctx.selectedFile);
                 ctx.tagFiles = tagFiles;
 
                 ctx.backStep = 'ask_dwg';
